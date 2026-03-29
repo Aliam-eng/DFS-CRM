@@ -1,0 +1,438 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// =============================================
+// USER & AUTH ENUMS
+// =============================================
+
+enum UserRole {
+  CLIENT
+  COMPLIANCE
+  OPERATIONS
+  ADMIN
+  SUPER_ADMIN
+}
+
+enum UserStatus {
+  PENDING_VERIFICATION
+  ACTIVE
+  SUSPENDED
+  DEACTIVATED
+}
+
+// =============================================
+// KYC ENUMS
+// =============================================
+
+enum KycStatus {
+  DRAFT
+  SUBMITTED
+  COMPLIANCE_APPROVED
+  COMPLIANCE_REJECTED
+  OPERATIONS_APPROVED
+  OPERATIONS_REJECTED
+}
+
+enum DocumentType {
+  PASSPORT
+  NATIONAL_ID
+  DRIVING_LICENCE
+  UTILITY_BILL
+  BANK_STATEMENT
+  AML_REPORT
+}
+
+enum NotificationType {
+  KYC_SUBMITTED
+  KYC_COMPLIANCE_APPROVED
+  KYC_COMPLIANCE_REJECTED
+  KYC_APPROVED
+  KYC_REJECTED
+  GENERAL
+}
+
+// Part A
+enum Gender {
+  MALE
+  FEMALE
+}
+
+enum MaritalStatus {
+  SINGLE
+  MARRIED
+  DIVORCED
+  WIDOWED
+}
+
+// Part B
+enum HomeStatus {
+  OWNED
+  RENTED
+}
+
+// Part C
+enum EmploymentCategory {
+  EMPLOYED
+  SELF_EMPLOYED
+  BUSINESS_OWNER
+  RETIRED
+  UNEMPLOYED
+  STUDENT
+}
+
+// Part E
+enum AnnualIncomeRange {
+  BELOW_20K
+  FROM_20K_TO_150K
+  FROM_150K_TO_500K
+  FROM_500K_TO_1M
+  ABOVE_1M
+}
+
+enum NetWorthRange {
+  BELOW_50K
+  FROM_50K_TO_250K
+  FROM_250K_TO_1M
+  ABOVE_1M
+}
+
+enum SourceOfFundsType {
+  SALARY
+  BUSINESS_INCOME
+  SAVINGS
+  INHERITANCE
+  INVESTMENT_RETURNS
+  OTHER
+}
+
+enum SourceOfWealth {
+  EMPLOYMENT_INCOME
+  BUSINESS_OWNERSHIP
+  REAL_ESTATE
+  INVESTMENT_PORTFOLIO
+  INHERITANCE_WEALTH
+  OTHER_WEALTH
+}
+
+// Part G
+enum InvestmentStrategy {
+  CONSERVATIVE
+  MODERATE
+  AGGRESSIVE
+}
+
+enum InvestmentObjectiveType {
+  CAPITAL_GROWTH
+  INCOME
+  CAPITAL_PROTECTION
+  HEDGING
+  OTHER_OBJECTIVE
+}
+
+enum RiskToleranceLevel {
+  LOW
+  MEDIUM
+  HIGH
+}
+
+// Part J
+enum PepStatus {
+  NOT_PEP
+  IS_PEP
+  PEP_FAMILY_ASSOCIATE
+}
+
+// =============================================
+// MODELS
+// =============================================
+
+model User {
+  id            String     @id @default(cuid())
+  email         String     @unique
+  passwordHash  String
+  firstName     String
+  lastName      String
+  phone         String?
+  role          UserRole   @default(CLIENT)
+  status        UserStatus @default(PENDING_VERIFICATION)
+  emailVerified Boolean    @default(false)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  otps          Otp[]
+  kycSubmission KycSubmission?
+  reviews       KycReview[]
+  notifications Notification[]
+  activityLogs  ActivityLog[]
+  kycHistory    KycHistory[]
+
+  @@index([email])
+  @@index([role, status])
+  @@map("users")
+}
+
+model Otp {
+  id        String   @id @default(cuid())
+  userId    String
+  code      String
+  purpose   String   @default("EMAIL_VERIFICATION")
+  expiresAt DateTime
+  used      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, purpose])
+  @@map("otps")
+}
+
+model KycSubmission {
+  id     String    @id @default(cuid())
+  userId String    @unique
+  status KycStatus @default(DRAFT)
+
+  // =============================================
+  // PART A: PERSONAL INFORMATION
+  // =============================================
+  firstName          String?
+  lastName           String?
+  middleName         String?          // Father's Name
+  mothersFullName    String?
+  placeOfBirth       String?
+  dateOfBirth        DateTime?
+  gender             Gender?
+  nationality        String?
+  otherNationality   String?
+  idNumber           String?
+  idIssueDate        DateTime?
+  passportNumber     String?
+  passportExpiryDate DateTime?
+  maritalStatus      MaritalStatus?
+  spouseFullName     String?
+  spouseProfession   String?
+  numberOfDependents Int?
+  phoneNumber        String?
+  emailAddress       String?
+
+  // =============================================
+  // PART B: RESIDENTIAL ADDRESS
+  // =============================================
+  // Primary Address
+  homeStatus        HomeStatus?
+  primaryCountry    String?
+  primaryCity       String?
+  primaryArea       String?
+  primaryStreet     String?
+  primaryBuilding   String?
+  primaryFloor      String?
+  primaryApartment  String?
+  // Secondary / Overseas Address
+  hasSecondaryAddress Boolean?    @default(false)
+  secondaryHomeStatus HomeStatus?
+  secondaryCountry    String?
+  secondaryCity       String?
+  secondaryArea       String?
+  secondaryStreet     String?
+  secondaryBuilding   String?
+  secondaryFloor      String?
+  secondaryApartment  String?
+
+  // =============================================
+  // PART C: OCCUPATION & EMPLOYMENT
+  // =============================================
+  employmentCategory      EmploymentCategory?
+  currentProfession       String?
+  institutionName         String?
+  natureOfBusiness        String?
+  lengthOfEmployment      String?
+  institutionPhone        String?
+  institutionEmail        String?
+  personalInstitutionEmail String?
+  institutionWebsite      String?
+  // If Retired or Unemployed
+  previousProfession      String?
+  // If Student
+  universityName          String?
+  major                   String?
+  expectedGraduationYear  Int?
+  // Director of listed company
+  isDirectorOfListed      Boolean?  @default(false)
+  directorCompanyName     String?
+  directorStockExchange   String?
+  directorPosition        String?
+  directorAppointmentDate DateTime?
+
+  // =============================================
+  // PART D: COMMUNICATION PREFERENCES
+  // =============================================
+  preferEmail        Boolean? @default(false)
+  preferSMS          Boolean? @default(false)
+  preferWhatsApp     Boolean? @default(false)
+  preferOther        Boolean? @default(false)
+  preferOtherDetails String?
+
+  // =============================================
+  // PART E: FINANCIAL INFORMATION
+  // =============================================
+  annualIncomeRange   AnnualIncomeRange?
+  sourceOfFunds       Json?     // Array of SourceOfFundsType values (multi-select)
+  sourceOfFundsOther  String?
+  estimatedNetWorth   NetWorthRange?
+  sourceOfWealth      Json?     // Array of SourceOfWealth values (multi-select)
+  sourceOfWealthOther String?
+  hasOtherBankAccounts Boolean?
+  otherBankCountry    String?
+  isUsPerson          Boolean?
+
+  // =============================================
+  // PART F: BENEFICIAL OWNER
+  // =============================================
+  isActingOnBehalf Boolean? @default(false)
+  beneficialOwner  Json?    // {fullName, dateOfBirth, nationality, idNumber, passportNumber, passportExpiryDate, relationshipToAccountHolder, ownershipPercentage}
+
+  // =============================================
+  // PART G: INVESTMENT PROFILE
+  // =============================================
+  investmentStrategy       InvestmentStrategy?
+  investmentObjective      InvestmentObjectiveType?
+  investmentObjectiveOther String?
+  riskTolerance            RiskToleranceLevel?
+
+  // =============================================
+  // PART H: INVESTMENT EXPERIENCE
+  // =============================================
+  investmentExperience Json? // {securities: {has: bool, years: int}, futuresCfds: {...}, options: {...}, commodities: {...}, bonds: {...}, forex: {...}}
+
+  // =============================================
+  // PART I: GENERAL COMPLIANCE
+  // =============================================
+  isAssociatedWithListed   Boolean?
+  associatedListedDetails  String?
+  hasInsideInformation     Boolean?
+  insideInformationDetails String?
+
+  // =============================================
+  // PART J: PEP DECLARATION
+  // =============================================
+  pepStatus  PepStatus?
+  pepDetails String?
+
+  // =============================================
+  // CLIENT DECLARATION
+  // =============================================
+  declarationAccepted Boolean?  @default(false)
+  declarationFullName String?
+  declarationDate     DateTime?
+
+  // =============================================
+  // FORM TRACKING
+  // =============================================
+  currentStep Int? @default(0)
+
+  submittedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  user      User            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  documents KycDocument[]
+  reviews   KycReview[]
+  history   KycHistory[]
+
+  @@index([userId])
+  @@index([status])
+  @@index([status, submittedAt])
+  @@index([submittedAt])
+  @@map("kyc_submissions")
+}
+
+model KycDocument {
+  id              String       @id @default(cuid())
+  kycSubmissionId String
+  documentType    DocumentType
+  fileName        String
+  filePath        String
+  fileSize        Int
+  mimeType        String
+  side            String?
+  uploadedAt      DateTime     @default(now())
+
+  kycSubmission KycSubmission @relation(fields: [kycSubmissionId], references: [id], onDelete: Cascade)
+
+  @@index([kycSubmissionId, documentType])
+  @@map("kyc_documents")
+}
+
+model KycReview {
+  id              String   @id @default(cuid())
+  kycSubmissionId String
+  reviewerUserId  String
+  reviewType      String
+  decision        String
+  notes           String?
+  amlReportPath   String?
+  reviewedAt      DateTime @default(now())
+
+  kycSubmission KycSubmission @relation(fields: [kycSubmissionId], references: [id], onDelete: Cascade)
+  reviewer      User          @relation(fields: [reviewerUserId], references: [id], onDelete: Restrict)
+
+  @@index([kycSubmissionId, reviewType])
+  @@index([kycSubmissionId])
+  @@index([reviewerUserId])
+  @@map("kyc_reviews")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  type      NotificationType
+  title     String
+  message   String
+  link      String?
+  read      Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model ActivityLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  details   String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([action])
+  @@index([createdAt])
+  @@map("activity_logs")
+}
+
+model KycHistory {
+  id              String   @id @default(cuid())
+  kycSubmissionId String
+  action          String   // CREATED, UPDATED, SUBMITTED, COMPLIANCE_REVIEWED, OPERATIONS_REVIEWED, RESUBMITTED
+  changes         Json?    // {field: {old: value, new: value}} for updates
+  performedBy     String   // userId who made the change
+  notes           String?
+  createdAt       DateTime @default(now())
+
+  kycSubmission KycSubmission @relation(fields: [kycSubmissionId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [performedBy], references: [id], onDelete: Restrict)
+
+  @@index([kycSubmissionId])
+  @@index([createdAt])
+  @@map("kyc_history")
+}

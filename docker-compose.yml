@@ -1,0 +1,72 @@
+version: "3.8"
+
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: dfs-db
+    restart: always
+    environment:
+      POSTGRES_DB: dfs_crm
+      POSTGRES_USER: dfsuser
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-StrongPassword123!}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U dfsuser -d dfs_crm"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build: .
+    container_name: dfs-crm
+    restart: always
+    ports:
+      - "3000:3000"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://dfsuser:${DB_PASSWORD:-StrongPassword123!}@db:5432/dfs_crm?schema=public
+      NEXTAUTH_SECRET: ${NEXTAUTH_SECRET}
+      AUTH_SECRET: ${NEXTAUTH_SECRET}
+      NEXTAUTH_URL: ${NEXTAUTH_URL:-http://localhost:3000}
+      SMTP_HOST: ${SMTP_HOST:-smtp.gmail.com}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_SECURE: ${SMTP_SECURE:-false}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      SMTP_FROM: ${SMTP_FROM:-noreply@dfstrading.com}
+    volumes:
+      - uploads_data:/app/uploads
+
+  nginx:
+    image: nginx:alpine
+    container_name: dfs-nginx
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf
+      - certbot_etc:/etc/letsencrypt
+      - certbot_var:/var/lib/letsencrypt
+    depends_on:
+      - app
+
+  certbot:
+    image: certbot/certbot
+    container_name: dfs-certbot
+    volumes:
+      - certbot_etc:/etc/letsencrypt
+      - certbot_var:/var/lib/letsencrypt
+    depends_on:
+      - nginx
+
+volumes:
+  postgres_data:
+  uploads_data:
+  certbot_etc:
+  certbot_var:
