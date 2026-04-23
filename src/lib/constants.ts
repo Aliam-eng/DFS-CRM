@@ -2,29 +2,29 @@ import { KycStatus, UserRole } from "@prisma/client";
 
 export const KYC_TRANSITIONS: Record<KycStatus, KycStatus[]> = {
   DRAFT: [KycStatus.SUBMITTED],
-  SUBMITTED: [KycStatus.COMPLIANCE_APPROVED, KycStatus.COMPLIANCE_REJECTED],
-  COMPLIANCE_APPROVED: [KycStatus.OPERATIONS_APPROVED, KycStatus.OPERATIONS_REJECTED],
-  COMPLIANCE_REJECTED: [KycStatus.DRAFT],
-  OPERATIONS_APPROVED: [],
+  SUBMITTED: [KycStatus.OPERATIONS_APPROVED, KycStatus.OPERATIONS_REJECTED],
+  OPERATIONS_APPROVED: [KycStatus.COMPLIANCE_APPROVED, KycStatus.COMPLIANCE_REJECTED],
   OPERATIONS_REJECTED: [KycStatus.DRAFT],
+  COMPLIANCE_APPROVED: [],
+  COMPLIANCE_REJECTED: [KycStatus.DRAFT],
 };
 
 export const KYC_STATUS_LABELS: Record<KycStatus, string> = {
   DRAFT: "Draft",
-  SUBMITTED: "Submitted",
-  COMPLIANCE_APPROVED: "Compliance Approved",
-  COMPLIANCE_REJECTED: "Compliance Rejected",
-  OPERATIONS_APPROVED: "Approved",
-  OPERATIONS_REJECTED: "Operations Rejected",
+  SUBMITTED: "Pending Operations Review",
+  OPERATIONS_APPROVED: "Pending Compliance Review",
+  OPERATIONS_REJECTED: "Rejected by Operations",
+  COMPLIANCE_APPROVED: "Approved",
+  COMPLIANCE_REJECTED: "Rejected by Compliance",
 };
 
 export const KYC_STATUS_COLORS: Record<KycStatus, string> = {
   DRAFT: "secondary",
   SUBMITTED: "default",
-  COMPLIANCE_APPROVED: "warning",
-  COMPLIANCE_REJECTED: "destructive",
-  OPERATIONS_APPROVED: "success",
+  OPERATIONS_APPROVED: "warning",
   OPERATIONS_REJECTED: "destructive",
+  COMPLIANCE_APPROVED: "success",
+  COMPLIANCE_REJECTED: "destructive",
 };
 
 export const ROLE_LABELS: Record<UserRole, string> = {

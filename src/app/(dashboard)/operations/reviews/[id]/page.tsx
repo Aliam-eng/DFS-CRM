@@ -110,8 +110,9 @@ export default function OperationsReviewDetailPage() {
 
   if (!kyc) return <DetailSkeleton />;
 
+  const operationsReview = kyc.reviews.find((r) => r.reviewType === "OPERATIONS");
   const complianceReview = kyc.reviews.find((r) => r.reviewType === "COMPLIANCE");
-  const canReview = kyc.status === "COMPLIANCE_APPROVED";
+  const canReview = kyc.status === "SUBMITTED";
   const investmentExp = kyc.investmentExperience as InvestmentExperienceData | null;
   const bo = kyc.beneficialOwner as BeneficialOwnerInfo | null;
   const fmt = (s: string | null) => s ? s.replace(/_/g, " ") : "-";
@@ -132,10 +133,23 @@ export default function OperationsReviewDetailPage() {
 
         {error && <Alert status="error" borderRadius="md"><AlertIcon />{error}</Alert>}
 
-        {/* Compliance Review Summary */}
+        {/* My Previous Operations Review */}
+        {operationsReview && !canReview && (
+          <Box bg={mutedBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={5}>
+            <Heading size="sm" mb={4}>My Operations Review</Heading>
+            <VStack spacing={2} align="stretch" fontSize="sm">
+              <Box><Text as="strong">Reviewer:</Text> {operationsReview.reviewer.firstName} {operationsReview.reviewer.lastName}</Box>
+              <HStack><Text as="strong">Decision:</Text> <StatusBadge status={operationsReview.decision} /></HStack>
+              <Box><Text as="strong">Date:</Text> {new Date(operationsReview.reviewedAt).toLocaleString()}</Box>
+              {operationsReview.notes && <Box><Text as="strong">Notes:</Text> {operationsReview.notes}</Box>}
+            </VStack>
+          </Box>
+        )}
+
+        {/* Compliance Final Review (read-only) */}
         {complianceReview && (
           <Box bg={complianceBg} borderWidth="1px" borderColor={complianceBorderColor} borderRadius="lg" p={5}>
-            <Heading size="sm" mb={4} color={complianceHeadingColor}>Compliance Review Summary</Heading>
+            <Heading size="sm" mb={4} color={complianceHeadingColor}>Compliance Final Review</Heading>
             <VStack spacing={2} align="stretch" fontSize="sm">
               <Box><Text as="strong">Reviewer:</Text> {complianceReview.reviewer.firstName} {complianceReview.reviewer.lastName}</Box>
               <HStack><Text as="strong">Decision:</Text> <StatusBadge status={complianceReview.decision} /></HStack>
@@ -312,13 +326,13 @@ export default function OperationsReviewDetailPage() {
         {/* Operations Decision */}
         {canReview && (
           <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={5}>
-            <Heading size="sm" mb={4}>Final Decision</Heading>
+            <Heading size="sm" mb={4}>Operations Decision</Heading>
             <VStack spacing={4} align="stretch">
               <FormControl>
                 <FormLabel>Decision *</FormLabel>
                 <RadioGroup value={decision} onChange={setDecision}>
                   <Stack direction="row" spacing={6} mt={2}>
-                    <Radio value="APPROVED"><Text color="green.500" fontWeight="medium">Final Approve</Text></Radio>
+                    <Radio value="APPROVED"><Text color="green.500" fontWeight="medium">Approve &amp; Forward to Compliance</Text></Radio>
                     <Radio value="REJECTED"><Text color="red.500" fontWeight="medium">Reject</Text></Radio>
                   </Stack>
                 </RadioGroup>
@@ -342,8 +356,8 @@ export default function OperationsReviewDetailPage() {
           isOpen={showConfirm}
           onClose={() => setShowConfirm(false)}
           onConfirm={handleSubmit}
-          title={`Confirm ${decision === "APPROVED" ? "Final Approval" : "Rejection"}`}
-          message="Are you sure? This is the final decision."
+          title={`Confirm ${decision === "APPROVED" ? "Approval & Forward" : "Rejection"}`}
+          message={decision === "APPROVED" ? "This KYC will be forwarded to Compliance for final review." : "The client will be notified of the rejection."}
           confirmText="Confirm"
           cancelText="Cancel"
           colorScheme={decision === "APPROVED" ? "green" : "red"}

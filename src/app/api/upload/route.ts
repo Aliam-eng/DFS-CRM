@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
-import { saveFile } from "@/lib/upload";
+import { saveFile } from "@/lib/storage";
 import { prisma } from "@/lib/prisma";
 import { DocumentType } from "@prisma/client";
 

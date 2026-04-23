@@ -22,7 +22,7 @@ interface Submission { id: string; status: string; submittedAt: string; user: { 
 
 export default function ComplianceReviewsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [status, setStatus] = useState("SUBMITTED");
+  const [status, setStatus] = useState("OPERATIONS_APPROVED");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const debouncedSearch = useDebounce(search, 300);
@@ -43,8 +43,8 @@ export default function ComplianceReviewsPage() {
     <VStack spacing={6} align="stretch">
       <Heading size="lg">KYC Reviews</Heading>
       <Flex gap={4} flexWrap="wrap">
-        <Select value={status} onChange={(e) => setStatus(e.target.value)} w={{ base: "full", md: "192px" }}>
-          <option value="SUBMITTED">Pending Review</option>
+        <Select value={status} onChange={(e) => setStatus(e.target.value)} w={{ base: "full", md: "240px" }}>
+          <option value="OPERATIONS_APPROVED">Pending Final Review</option>
           <option value="COMPLIANCE_APPROVED">Approved</option>
           <option value="COMPLIANCE_REJECTED">Rejected</option>
         </Select>

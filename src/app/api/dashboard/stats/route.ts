@@ -23,7 +23,7 @@ export async function GET() {
 
     if (role === "COMPLIANCE") {
       const [pending, approvedToday, rejectedToday] = await Promise.all([
-        prisma.kycSubmission.count({ where: { status: "SUBMITTED" } }),
+        prisma.kycSubmission.count({ where: { status: "OPERATIONS_APPROVED" } }),
         prisma.kycReview.count({
           where: {
             reviewType: "COMPLIANCE",
@@ -44,7 +44,7 @@ export async function GET() {
 
     if (role === "OPERATIONS") {
       const [pending, approvedToday, rejectedToday] = await Promise.all([
-        prisma.kycSubmission.count({ where: { status: "COMPLIANCE_APPROVED" } }),
+        prisma.kycSubmission.count({ where: { status: "SUBMITTED" } }),
         prisma.kycReview.count({
           where: {
             reviewType: "OPERATIONS",

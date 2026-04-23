@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { createNotification } from "@/lib/notifications";
+import { createNotification, notifyByRole } from "@/lib/notifications";
 import { logActivity } from "@/lib/activity-log";
 import { sendKycStatusEmail } from "@/lib/email";
 
@@ -28,8 +28,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "KYC not found" }, { status: 404 });
     }
 
-    if (kyc.status !== "COMPLIANCE_APPROVED") {
-      return NextResponse.json({ error: "KYC is not compliance approved" }, { status: 400 });
+    if (kyc.status !== "SUBMITTED") {
+      return NextResponse.json({ error: "KYC is not in submitted status" }, { status: 400 });
     }
 
     // Create review record
@@ -62,25 +62,29 @@ export async function POST(req: Request, { params }: { params: { id: string } })
 
     await logActivity({ userId: session.user.id, action: `OPERATIONS_${decision}`, details: `KYC ${kyc.id} for ${kyc.user.email} ${decision.toLowerCase()}` });
 
-    // Notify client
-    await createNotification({
-      userId: kyc.userId,
-      type: decision === "APPROVED" ? "KYC_APPROVED" : "KYC_REJECTED",
-      title: decision === "APPROVED" ? "KYC Approved!" : "KYC Rejected",
-      message:
-        decision === "APPROVED"
-          ? "Your KYC has been fully approved. Welcome to DFS."
-          : `Your KYC has been rejected. ${notes ? `Reason: ${notes}` : ""}`,
-      link: "/client/kyc/status",
-    });
+    const clientName = `${kyc.user.firstName} ${kyc.user.lastName}`;
 
-    // Send email notification (fire and forget)
-    sendKycStatusEmail(
-      kyc.user.email,
-      `${kyc.user.firstName} ${kyc.user.lastName}`,
-      decision === "APPROVED" ? "OPERATIONS_APPROVED" : "OPERATIONS_REJECTED",
-      decision === "REJECTED" ? (notes || undefined) : undefined
-    );
+    if (decision === "APPROVED") {
+      // Forward to Compliance for final review
+      await notifyByRole(
+        "COMPLIANCE",
+        "KYC_OPERATIONS_APPROVED",
+        "KYC Ready for Compliance Review",
+        `Operations has approved ${clientName}'s KYC. Final compliance review required.`,
+        `/compliance/reviews/${kyc.id}`
+      );
+      sendKycStatusEmail(kyc.user.email, clientName, "OPERATIONS_APPROVED");
+    } else {
+      // Notify client of rejection
+      await createNotification({
+        userId: kyc.userId,
+        type: "KYC_REJECTED",
+        title: "KYC Rejected",
+        message: `Your KYC has been rejected by operations. ${notes ? `Reason: ${notes}` : ""}`,
+        link: "/client/kyc/status",
+      });
+      sendKycStatusEmail(kyc.user.email, clientName, "OPERATIONS_REJECTED", notes || undefined);
+    }
 
     return NextResponse.json({ message: `KYC ${decision.toLowerCase()} successfully` });
   } catch (error) {

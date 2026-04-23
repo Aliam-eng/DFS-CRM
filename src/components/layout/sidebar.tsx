@@ -32,6 +32,7 @@ import {
   CheckCircle,
   Shield,
   ScrollText,
+  UserPlus,
 } from "lucide-react";
 
 interface NavItem {
@@ -54,6 +55,7 @@ export const roleNavItems: Record<string, NavItem[]> = {
   ],
   OPERATIONS: [
     { label: "Dashboard", href: "/operations/dashboard", icon: LayoutDashboard },
+    { label: "Client Activations", href: "/operations/pending-users", icon: UserPlus },
     { label: "KYC Reviews", href: "/operations/reviews", icon: ClipboardCheck },
     { label: "Notifications", href: "/notifications", icon: Bell },
   ],

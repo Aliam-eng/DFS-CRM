@@ -61,8 +61,8 @@ function VerifyOtpContent() {
         setLoading(false);
         return;
       }
-      setSuccess("Email verified! Redirecting to login...");
-      setTimeout(() => router.push("/login"), 2000);
+      setSuccess("Email verified! Your account is now awaiting activation by our Operations team. You will receive a notification once activated.");
+      setTimeout(() => router.push("/login"), 5000);
     } catch {
       setError("Something went wrong");
       setLoading(false);

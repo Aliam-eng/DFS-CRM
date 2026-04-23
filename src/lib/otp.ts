@@ -2,6 +2,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { sendOtpEmail } from "./email";
+import { notifyByRole } from "./notifications";
 
 export function generateOtp(): string {
   return crypto.randomInt(100000, 999999).toString();
@@ -54,10 +55,21 @@ export async function verifyOtp(email: string, code: string, purpose: string): P
   });
 
   if (purpose === "EMAIL_VERIFICATION") {
+    // Mark email verified, but keep status PENDING_VERIFICATION
+    // — Operations must activate the account before the user can log in.
     await prisma.user.update({
       where: { id: user.id },
-      data: { status: "ACTIVE", emailVerified: true },
+      data: { emailVerified: true },
     });
+
+    // Notify Operations so they can activate the account
+    await notifyByRole(
+      "OPERATIONS",
+      "GENERAL",
+      "New Client Awaiting Activation",
+      `${user.firstName} ${user.lastName} (${user.email}) has verified their email and is awaiting activation.`,
+      "/operations/pending-users"
+    );
   }
 
   return true;

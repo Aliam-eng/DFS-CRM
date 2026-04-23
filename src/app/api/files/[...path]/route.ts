@@ -18,6 +18,13 @@ export async function GET(req: Request, { params }: { params: { path: string[] }
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    const joined = params.path.join("/");
+
+    // If the stored path is an external URL (e.g. UploadThing), redirect
+    if (/^https?:\/\//.test(joined)) {
+      return NextResponse.redirect(joined);
+    }
+
     const filePath = path.join(process.cwd(), "uploads", ...params.path);
     const resolvedPath = path.resolve(filePath);
 

@@ -111,7 +111,8 @@ export default function ComplianceReviewDetailPage() {
 
   if (!kyc) return <DetailSkeleton />;
 
-  const canReview = kyc.status === "SUBMITTED";
+  const canReview = kyc.status === "OPERATIONS_APPROVED";
+  const operationsReview = kyc.reviews.find((r) => r.reviewType === "OPERATIONS");
   const investmentExp = kyc.investmentExperience as InvestmentExperienceData | null;
   const bo = kyc.beneficialOwner as BeneficialOwnerInfo | null;
   const fmt = (s: string | null) => s ? s.replace(/_/g, " ") : "-";
@@ -131,6 +132,21 @@ export default function ComplianceReviewDetailPage() {
         </Flex>
 
         {error && <Alert status="error" borderRadius="md"><AlertIcon />{error}</Alert>}
+
+        {/* Operations Approval (read-only) */}
+        {operationsReview && (
+          <Box borderWidth="1px" borderLeftWidth="4px" borderLeftColor="green.400" borderColor={borderColor} bg={mutedBg} borderRadius="lg" p={4}>
+            <HStack justify="space-between" mb={2}>
+              <Heading size="sm">Operations Review</Heading>
+              <StatusBadge status={operationsReview.decision} />
+            </HStack>
+            <VStack spacing={1} align="stretch" fontSize="sm">
+              <Text><Text as="strong">Reviewed by:</Text> {operationsReview.reviewer.firstName} {operationsReview.reviewer.lastName}</Text>
+              <Text><Text as="strong">Date:</Text> {new Date(operationsReview.reviewedAt).toLocaleString()}</Text>
+              {operationsReview.notes && <Text><Text as="strong">Notes:</Text> {operationsReview.notes}</Text>}
+            </VStack>
+          </Box>
+        )}
 
         {/* Client Info */}
         <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={5}>

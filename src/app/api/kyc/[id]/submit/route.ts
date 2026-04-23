@@ -116,11 +116,11 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     await Promise.all([
       logActivity({ userId: session.user.id, action: "KYC_SUBMITTED", details: `KYC ${kyc.id} submitted for review` }),
       notifyByRole(
-        "COMPLIANCE",
+        "OPERATIONS",
         "KYC_SUBMITTED",
         "New KYC Submission",
         `${clientName} has submitted their KYC for review.`,
-        `/compliance/reviews/${kyc.id}`
+        `/operations/reviews/${kyc.id}`
       ),
       sendKycStatusEmail(kyc.user.email, clientName, "SUBMITTED"),
     ]);

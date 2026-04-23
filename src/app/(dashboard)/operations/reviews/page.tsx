@@ -22,7 +22,7 @@ interface Submission { id: string; status: string; submittedAt: string; user: { 
 
 export default function OperationsReviewsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
-  const [status, setStatus] = useState("COMPLIANCE_APPROVED");
+  const [status, setStatus] = useState("SUBMITTED");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const debouncedSearch = useDebounce(search, 300);
@@ -43,10 +43,12 @@ export default function OperationsReviewsPage() {
     <VStack spacing={6} align="stretch">
       <Heading size="lg">Operations Reviews</Heading>
       <Flex gap={4} flexWrap="wrap">
-        <Select value={status} onChange={(e) => setStatus(e.target.value)} w={{ base: "full", md: "192px" }}>
-          <option value="COMPLIANCE_APPROVED">Pending Review</option>
-          <option value="OPERATIONS_APPROVED">Approved</option>
-          <option value="OPERATIONS_REJECTED">Rejected</option>
+        <Select value={status} onChange={(e) => setStatus(e.target.value)} w={{ base: "full", md: "240px" }}>
+          <option value="SUBMITTED">Pending My Review</option>
+          <option value="OPERATIONS_APPROVED">Forwarded to Compliance</option>
+          <option value="OPERATIONS_REJECTED">Rejected by Me</option>
+          <option value="COMPLIANCE_APPROVED">Final Approved</option>
+          <option value="COMPLIANCE_REJECTED">Rejected by Compliance</option>
         </Select>
         <Input placeholder="Search..." value={search} onChange={(e) => setSearch(e.target.value)} w={{ base: "full", md: "320px" }} />
       </Flex>
@@ -58,17 +60,24 @@ export default function OperationsReviewsPage() {
           {loading ? <TableSkeleton /> : submissions.length === 0 ? <Text color={mutedColor}>No submissions found.</Text> : (
             <VStack spacing={2} align="stretch">
               {submissions.map((s) => {
+                const opsReview = s.reviews?.find((r) => r.reviewType === "OPERATIONS");
                 const compReview = s.reviews?.find((r) => r.reviewType === "COMPLIANCE");
+                const isPending = s.status === "SUBMITTED";
                 return (
                   <Flex key={s.id} align="center" justify="space-between" p={3} borderWidth="1px" borderColor={borderColor} borderRadius="lg" _hover={{ bg: hoverBg }} transition="background 0.2s">
                     <Box>
                       <Text fontWeight="medium">{s.user.firstName} {s.user.lastName}</Text>
                       <Text fontSize="sm" color={mutedColor}>{s.user.email}</Text>
+                      {opsReview && <Text fontSize="xs" color={mutedColor}>Operations: {opsReview.decision} by {opsReview.reviewer.firstName} {opsReview.reviewer.lastName}</Text>}
                       {compReview && <Text fontSize="xs" color={mutedColor}>Compliance: {compReview.decision} by {compReview.reviewer.firstName} {compReview.reviewer.lastName}</Text>}
                     </Box>
                     <HStack spacing={3}>
                       <StatusBadge status={s.status} />
-                      <Link href={`/operations/reviews/${s.id}`}><Button size="sm" colorScheme="brand">Review</Button></Link>
+                      <Link href={`/operations/reviews/${s.id}`}>
+                        <Button size="sm" colorScheme={isPending ? "brand" : "gray"} variant={isPending ? "solid" : "outline"}>
+                          {isPending ? "Review" : "View"}
+                        </Button>
+                      </Link>
                     </HStack>
                   </Flex>
                 );

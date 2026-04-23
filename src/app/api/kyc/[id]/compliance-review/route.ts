@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { saveFile } from "@/lib/upload";
+import { saveFile } from "@/lib/storage";
 import { createNotification, notifyByRole } from "@/lib/notifications";
 import { logActivity } from "@/lib/activity-log";
 import { sendKycStatusEmail } from "@/lib/email";
@@ -31,8 +31,8 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "KYC not found" }, { status: 404 });
     }
 
-    if (kyc.status !== "SUBMITTED") {
-      return NextResponse.json({ error: "KYC is not in submitted status" }, { status: 400 });
+    if (kyc.status !== "OPERATIONS_APPROVED") {
+      return NextResponse.json({ error: "KYC is not ready for compliance review" }, { status: 400 });
     }
 
     // Save AML report if provided

@@ -51,27 +51,27 @@ const kycStatusMessages: Record<string, { subject: string; heading: string; body
   SUBMITTED: {
     subject: "DFS - KYC Submitted",
     heading: "KYC Application Submitted",
-    body: "Your KYC application has been submitted and is under review.",
-  },
-  COMPLIANCE_APPROVED: {
-    subject: "DFS - KYC Compliance Approved",
-    heading: "Compliance Review Passed",
-    body: "Your KYC has passed compliance review and is now under operations review.",
-  },
-  COMPLIANCE_REJECTED: {
-    subject: "DFS - KYC Compliance Rejected",
-    heading: "KYC Returned for Revision",
-    body: "Your KYC has been returned for revision.",
+    body: "Your KYC application has been submitted and is now being reviewed by our Operations team.",
   },
   OPERATIONS_APPROVED: {
+    subject: "DFS - KYC Moved to Compliance Review",
+    heading: "Operations Review Passed",
+    body: "Your KYC has passed operations review and is now under final compliance review.",
+  },
+  OPERATIONS_REJECTED: {
+    subject: "DFS - KYC Returned for Revision",
+    heading: "KYC Returned for Revision",
+    body: "Your KYC has been returned for revision by our Operations team.",
+  },
+  COMPLIANCE_APPROVED: {
     subject: "DFS - KYC Approved",
     heading: "KYC Fully Approved",
     body: "Your KYC has been fully approved. Welcome to DFS!",
   },
-  OPERATIONS_REJECTED: {
+  COMPLIANCE_REJECTED: {
     subject: "DFS - KYC Rejected",
     heading: "KYC Returned for Revision",
-    body: "Your KYC has been returned for revision.",
+    body: "Your KYC has been returned for revision by our Compliance team.",
   },
 };
 

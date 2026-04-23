@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { getActiveProvider } from "@/lib/storage";
 
 export async function GET() {
   try {
@@ -52,6 +53,10 @@ export async function GET() {
       },
       totalDocuments,
       totalNotifications,
+      storage: {
+        provider: getActiveProvider(),
+        uploadThingConfigured: Boolean(process.env.UPLOADTHING_TOKEN),
+      },
     });
   } catch (error) {
     console.error("System stats error:", error);

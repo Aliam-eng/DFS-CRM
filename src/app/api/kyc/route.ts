@@ -19,19 +19,21 @@ export async function GET(req: Request) {
 
     const where: Record<string, unknown> = {};
 
-    // Role-based filtering
+    // Role-based filtering (new flow: OPERATIONS first, then COMPLIANCE finalizes)
     if (session.user.role === "CLIENT") {
       where.userId = session.user.id;
-    } else if (session.user.role === "COMPLIANCE") {
-      where.status = status || "SUBMITTED";
     } else if (session.user.role === "OPERATIONS") {
+      // Operations queue = SUBMITTED; also can see everything downstream (read-only)
+      where.status = status || "SUBMITTED";
+    } else if (session.user.role === "COMPLIANCE") {
+      // Compliance queue = OPERATIONS_APPROVED; final approvals go to COMPLIANCE_APPROVED
       if (status) {
         where.status = status;
       } else {
-        where.status = { in: ["COMPLIANCE_APPROVED", "OPERATIONS_APPROVED", "OPERATIONS_REJECTED"] };
+        where.status = "OPERATIONS_APPROVED";
       }
     }
-    // ADMIN and SUPER_ADMIN see all
+    // ADMIN and SUPER_ADMIN see all (status filter optional)
     if (status && session.user.role !== "COMPLIANCE" && session.user.role !== "OPERATIONS") {
       where.status = status;
     }

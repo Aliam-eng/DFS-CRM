@@ -6,10 +6,10 @@ import { KYC_STATUS_LABELS } from "@/lib/constants";
 const STATUS_COLORS: Record<string, string> = {
   DRAFT: "gray",
   SUBMITTED: "blue",
-  COMPLIANCE_APPROVED: "teal",
-  COMPLIANCE_REJECTED: "red",
-  OPERATIONS_APPROVED: "green",
+  OPERATIONS_APPROVED: "teal",
   OPERATIONS_REJECTED: "red",
+  COMPLIANCE_APPROVED: "green",
+  COMPLIANCE_REJECTED: "red",
   ACTIVE: "green",
   SUSPENDED: "orange",
   PENDING_VERIFICATION: "orange",
