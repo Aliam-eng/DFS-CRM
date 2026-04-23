@@ -8,10 +8,12 @@ set -e
 
 DOMAIN=""
 EMAIL=""
-REPO_URL=""
+REPO_URL="https://github.com/Aliam-eng/DFS-CRM.git"
 DB_PASSWORD=""
 SMTP_USER=""
 SMTP_PASS=""
+STORAGE_PROVIDER="LOCAL"
+UPLOADTHING_TOKEN=""
 
 # ---- Colors ----
 GREEN='\033[0;32m'
@@ -32,12 +34,19 @@ echo ""
 
 read -p "Enter your domain (e.g. crm.dfstrading.com): " DOMAIN
 read -p "Enter your email (for SSL certificate): " EMAIL
-read -p "Enter your GitHub repo URL: " REPO_URL
+read -p "GitHub repo URL [${REPO_URL}]: " INPUT_REPO
+REPO_URL="${INPUT_REPO:-$REPO_URL}"
 read -sp "Enter a database password: " DB_PASSWORD
 echo ""
 read -p "Enter SMTP email (Gmail): " SMTP_USER
 read -sp "Enter SMTP app password: " SMTP_PASS
 echo ""
+read -p "Storage provider (LOCAL/UPLOADTHING) [LOCAL]: " INPUT_STORAGE
+STORAGE_PROVIDER="${INPUT_STORAGE:-LOCAL}"
+if [ "$STORAGE_PROVIDER" = "UPLOADTHING" ]; then
+    read -sp "Enter UploadThing V7 token: " UPLOADTHING_TOKEN
+    echo ""
+fi
 
 NEXTAUTH_SECRET=$(openssl rand -base64 64 | tr -d '\n')
 
@@ -78,13 +87,16 @@ print_step "Creating .env file..."
 cat > /var/www/dfs-crm/.env <<EOF
 DB_PASSWORD=${DB_PASSWORD}
 NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
+AUTH_SECRET=${NEXTAUTH_SECRET}
 NEXTAUTH_URL=https://${DOMAIN}
 SMTP_HOST=smtp.gmail.com
 SMTP_PORT=587
 SMTP_SECURE=false
 SMTP_USER=${SMTP_USER}
 SMTP_PASS=${SMTP_PASS}
-SMTP_FROM=noreply@dfstrading.com
+SMTP_FROM=noreply@${DOMAIN}
+STORAGE_PROVIDER=${STORAGE_PROVIDER}
+UPLOADTHING_TOKEN=${UPLOADTHING_TOKEN}
 EOF
 
 echo ".env created."
@@ -100,15 +112,35 @@ print_step "Building and starting containers (this may take a few minutes)..."
 cd /var/www/dfs-crm
 docker compose up -d --build
 
-echo "Waiting for services to be healthy..."
-sleep 10
+# Wait for database to be healthy
+print_step "Waiting for database to be ready..."
+for i in {1..30}; do
+    if docker compose exec -T db pg_isready -U dfsuser -d dfs_crm &>/dev/null; then
+        echo "Database is ready."
+        break
+    fi
+    sleep 2
+done
 
-# ---- Step 6: Seed database ----
+# Wait for app to be ready
+print_step "Waiting for app to start..."
+for i in {1..30}; do
+    if docker compose exec -T app test -f /app/server.js &>/dev/null; then
+        echo "App is ready."
+        break
+    fi
+    sleep 2
+done
+
+# ---- Step 6: Run migrations (should already run on container start, but ensure) ----
+print_step "Ensuring database migrations are applied..."
+docker compose exec -T app npx prisma migrate deploy 2>/dev/null || print_warn "Migrations may have run already."
+
+# ---- Step 7: Seed database ----
 print_step "Seeding database with demo users..."
+docker compose exec -T app npx tsx prisma/seed.ts 2>/dev/null || print_warn "Seed may have already been applied."
 
-docker compose exec app npx tsx prisma/seed.ts 2>/dev/null || print_warn "Seed may have already been applied."
-
-# ---- Step 7: SSL Certificate ----
+# ---- Step 8: SSL Certificate ----
 print_step "Setting up SSL certificate for ${DOMAIN}..."
 
 docker compose run --rm certbot certonly \
@@ -169,10 +201,29 @@ NGINXEOF
 # Restart nginx with SSL config
 docker compose restart nginx
 
-# ---- Step 8: SSL Auto-renewal cron ----
+# ---- Step 9: SSL Auto-renewal cron ----
 print_step "Setting up SSL auto-renewal..."
 
-(crontab -l 2>/dev/null; echo "0 3 * * * cd /var/www/dfs-crm && docker compose run --rm certbot renew --quiet && docker compose restart nginx") | crontab -
+(crontab -l 2>/dev/null | grep -v "dfs-crm.*certbot renew" ; echo "0 3 * * * cd /var/www/dfs-crm && docker compose run --rm certbot renew --quiet && docker compose restart nginx") | crontab -
+
+# ---- Step 10: Daily database backup cron ----
+print_step "Setting up daily database backup..."
+
+mkdir -p /var/backups/dfs-crm
+(crontab -l 2>/dev/null | grep -v "dfs-crm.*pg_dump" ; echo "0 2 * * * cd /var/www/dfs-crm && docker compose exec -T db pg_dump -U dfsuser dfs_crm > /var/backups/dfs-crm/dfs_\$(date +\%Y\%m\%d).sql && find /var/backups/dfs-crm -name 'dfs_*.sql' -mtime +14 -delete") | crontab -
+
+# ---- Step 11: Firewall (UFW) ----
+print_step "Configuring firewall..."
+
+if command -v ufw &> /dev/null; then
+    ufw allow 22/tcp comment "SSH" >/dev/null 2>&1 || true
+    ufw allow 80/tcp comment "HTTP" >/dev/null 2>&1 || true
+    ufw allow 443/tcp comment "HTTPS" >/dev/null 2>&1 || true
+    echo "y" | ufw enable >/dev/null 2>&1 || true
+    echo "Firewall configured."
+else
+    print_warn "UFW not installed — skipping firewall setup."
+fi
 
 # ---- Done ----
 echo ""
