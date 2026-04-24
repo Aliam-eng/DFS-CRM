@@ -56,20 +56,22 @@ export async function verifyOtp(email: string, code: string, purpose: string): P
 
   if (purpose === "EMAIL_VERIFICATION") {
     // Mark email verified, but keep status PENDING_VERIFICATION
-    // — Operations must activate the account before the user can log in.
+    // — Operations/Admin/Super Admin must activate the account before the user can log in.
     await prisma.user.update({
       where: { id: user.id },
       data: { emailVerified: true },
     });
 
-    // Notify Operations so they can activate the account
-    await notifyByRole(
-      "OPERATIONS",
-      "GENERAL",
-      "New Client Awaiting Activation",
-      `${user.firstName} ${user.lastName} (${user.email}) has verified their email and is awaiting activation.`,
-      "/operations/pending-users"
-    );
+    // Notify staff who can activate (fire-and-forget — never block OTP verification)
+    const title = "New Client Awaiting Activation";
+    const message = `${user.firstName} ${user.lastName} (${user.email}) has verified their email and is awaiting activation.`;
+    const link = "/operations/pending-users";
+
+    Promise.all([
+      notifyByRole("OPERATIONS", "GENERAL", title, message, link),
+      notifyByRole("ADMIN", "GENERAL", title, message, link),
+      notifyByRole("SUPER_ADMIN", "GENERAL", title, message, link),
+    ]).catch((err) => console.error("Failed to notify staff about new signup:", err));
   }
 
   return true;

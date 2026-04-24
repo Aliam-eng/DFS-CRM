@@ -7,7 +7,16 @@ export async function POST(req: Request) {
     const body = await req.json();
     const data = otpSchema.parse(body);
 
-    const isValid = await verifyOtp(data.email, data.code, data.purpose);
+    let isValid = false;
+    try {
+      isValid = await verifyOtp(data.email, data.code, data.purpose);
+    } catch (err) {
+      console.error("verifyOtp threw:", err);
+      return NextResponse.json(
+        { error: "Verification failed. Please try again." },
+        { status: 500 }
+      );
+    }
 
     if (!isValid) {
       return NextResponse.json(

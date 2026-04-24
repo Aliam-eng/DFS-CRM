@@ -61,12 +61,14 @@ export const roleNavItems: Record<string, NavItem[]> = {
   ],
   ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
+    { label: "Client Activations", href: "/operations/pending-users", icon: UserPlus },
     { label: "All KYC", href: "/admin/kyc", icon: FileText },
     { label: "Notifications", href: "/notifications", icon: Bell },
   ],
   SUPER_ADMIN: [
     { label: "Dashboard", href: "/super-admin/dashboard", icon: LayoutDashboard },
     { label: "Users", href: "/super-admin/users", icon: Users },
+    { label: "Client Activations", href: "/operations/pending-users", icon: UserPlus },
     { label: "All KYC", href: "/super-admin/kyc", icon: FileText },
     { label: "Settings", href: "/super-admin/settings", icon: Settings },
     { label: "Activity Logs", href: "/super-admin/activity-logs", icon: ScrollText },

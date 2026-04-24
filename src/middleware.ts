@@ -10,7 +10,7 @@ const ROLE_ROUTES: Record<string, string[]> = {
   CLIENT: ["/client"],
   COMPLIANCE: ["/compliance"],
   OPERATIONS: ["/operations"],
-  ADMIN: ["/admin"],
+  ADMIN: ["/admin", "/operations/pending-users"],
   SUPER_ADMIN: ["/super-admin", "/admin", "/compliance", "/operations"],
 };
 
