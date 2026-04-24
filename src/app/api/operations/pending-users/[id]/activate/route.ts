@@ -24,15 +24,16 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       return NextResponse.json({ error: "User is already active" }, { status: 400 });
     }
 
+    // Activate + mark email verified (staff override — no OTP needed)
     await prisma.user.update({
       where: { id: target.id },
-      data: { status: "ACTIVE" },
+      data: { status: "ACTIVE", emailVerified: true },
     });
 
     await logActivity({
       userId: session.user.id,
       action: "USER_ACTIVATED",
-      details: `Activated client ${target.email}`,
+      details: `Activated client ${target.email}${target.emailVerified ? "" : " (email verification bypassed)"}`,
     });
 
     // Notify the client their account is active

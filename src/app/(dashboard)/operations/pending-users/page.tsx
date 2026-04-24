@@ -154,11 +154,10 @@ export default function PendingUsersPage() {
                           colorScheme="brand"
                           leftIcon={<UserCheck size={16} />}
                           isLoading={activating === u.id}
-                          isDisabled={!u.emailVerified}
                           onClick={() => setToActivate(u)}
-                          title={u.emailVerified ? "Activate account" : "Waiting for email verification"}
+                          title={u.emailVerified ? "Activate account" : "Activate account (email verification will be bypassed)"}
                         >
-                          Activate
+                          {u.emailVerified ? "Activate" : "Verify & Activate"}
                         </Button>
                       )}
                     </HStack>
@@ -174,13 +173,15 @@ export default function PendingUsersPage() {
         isOpen={!!toActivate}
         onClose={() => setToActivate(null)}
         onConfirm={handleActivate}
-        title="Activate Client Account"
+        title={toActivate?.emailVerified ? "Activate Client Account" : "Verify & Activate Client Account"}
         message={
           toActivate
-            ? `Activate ${toActivate.firstName} ${toActivate.lastName}? They will be able to log in and start their KYC application.`
+            ? toActivate.emailVerified
+              ? `Activate ${toActivate.firstName} ${toActivate.lastName}? They will be able to log in and start their KYC application.`
+              : `${toActivate.firstName} ${toActivate.lastName} has NOT verified their email via OTP. Activating now will bypass email verification and mark their email as verified. They will be able to log in immediately. Continue?`
             : ""
         }
-        confirmText="Activate"
+        confirmText={toActivate?.emailVerified ? "Activate" : "Verify & Activate"}
         cancelText="Cancel"
         colorScheme="green"
         isLoading={activating !== null}
