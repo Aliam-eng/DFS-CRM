@@ -80,7 +80,7 @@ export default function RegisterPage() {
       }
       toast({
         title: "Account Created!",
-        description: "Please check your email for the verification code",
+        description: "Check your email for the verification code.",
         status: "success",
         duration: 3000,
       });

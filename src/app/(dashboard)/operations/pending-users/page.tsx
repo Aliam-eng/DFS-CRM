@@ -15,12 +15,12 @@ import {
   useColorModeValue,
   useToast,
 } from "@chakra-ui/react";
-import { UserCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TableSkeleton } from "@/components/shared/loading-skeletons";
 import { useDebounce } from "@/hooks/use-debounce";
 
-interface PendingUser {
+interface ClientUser {
   id: string;
   firstName: string;
   lastName: string;
@@ -31,13 +31,13 @@ interface PendingUser {
   createdAt: string;
 }
 
-export default function PendingUsersPage() {
-  const [users, setUsers] = useState<PendingUser[]>([]);
+export default function ClientVerificationPage() {
+  const [users, setUsers] = useState<ClientUser[]>([]);
   const [filter, setFilter] = useState("PENDING");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
-  const [activating, setActivating] = useState<string | null>(null);
-  const [toActivate, setToActivate] = useState<PendingUser | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [target, setTarget] = useState<ClientUser | null>(null);
   const debouncedSearch = useDebounce(search, 300);
   const toast = useToast();
 
@@ -58,33 +58,36 @@ export default function PendingUsersPage() {
     fetchUsers();
   }, [fetchUsers]);
 
-  const handleActivate = async () => {
-    if (!toActivate) return;
-    setActivating(toActivate.id);
-    const res = await fetch(`/api/operations/pending-users/${toActivate.id}/activate`, {
+  const handleVerify = async () => {
+    if (!target) return;
+    setBusyId(target.id);
+    const res = await fetch(`/api/operations/pending-users/${target.id}/activate`, {
       method: "POST",
     });
-    setActivating(null);
-    setToActivate(null);
+    setBusyId(null);
+    setTarget(null);
     if (!res.ok) {
       const d = await res.json();
-      toast({ title: "Activation Failed", description: d.error, status: "error", duration: 3000 });
+      toast({ title: "Verification failed", description: d.error, status: "error", duration: 3000 });
       return;
     }
-    toast({ title: "User activated", status: "success", duration: 3000 });
+    toast({ title: "User verified", status: "success", duration: 3000 });
     fetchUsers();
   };
 
   return (
     <VStack spacing={6} align="stretch">
       <Box>
-        <Heading size="lg">Client Activations</Heading>
-        <Text color={mutedColor} mt={1}>Review new sign-ups and activate verified clients.</Text>
+        <Heading size="lg">Client Verification</Heading>
+        <Text color={mutedColor} mt={1}>
+          Manually verify and activate clients who cannot receive their OTP email.
+        </Text>
       </Box>
 
       <Flex gap={4} flexWrap="wrap">
-        <Select value={filter} onChange={(e) => setFilter(e.target.value)} w={{ base: "full", md: "240px" }}>
-          <option value="PENDING">Pending Activation</option>
+        <Select value={filter} onChange={(e) => setFilter(e.target.value)} w={{ base: "full", md: "260px" }}>
+          <option value="PENDING">Pending Verification</option>
+          <option value="SUSPENDED">Suspended / Deactivated</option>
           <option value="ALL">All Clients</option>
         </Select>
         <Input
@@ -107,7 +110,7 @@ export default function PendingUsersPage() {
           ) : (
             <VStack spacing={2} align="stretch">
               {users.map((u) => {
-                const isPending = u.status === "PENDING_VERIFICATION";
+                const needsAction = !u.emailVerified || u.status !== "ACTIVE";
                 return (
                   <Flex
                     key={u.id}
@@ -132,32 +135,27 @@ export default function PendingUsersPage() {
                         <Badge colorScheme={u.emailVerified ? "green" : "orange"} fontSize="xs">
                           {u.emailVerified ? "Email verified" : "Email unverified"}
                         </Badge>
+                        <Badge
+                          colorScheme={u.status === "ACTIVE" ? "green" : u.status === "PENDING_VERIFICATION" ? "orange" : "gray"}
+                          fontSize="xs"
+                        >
+                          {u.status.replace(/_/g, " ")}
+                        </Badge>
                         <Text fontSize="xs" color={mutedColor}>
-                          Joined {new Date(u.createdAt).toLocaleString()}
+                          Joined {new Date(u.createdAt).toLocaleDateString()}
                         </Text>
                       </HStack>
                     </Box>
                     <HStack spacing={3}>
-                      <Badge
-                        colorScheme={u.status === "ACTIVE" ? "green" : u.status === "PENDING_VERIFICATION" ? "orange" : "gray"}
-                        fontSize="xs"
-                        fontWeight="600"
-                        borderRadius="full"
-                        px={2.5}
-                        py={0.5}
-                      >
-                        {u.status.replace(/_/g, " ")}
-                      </Badge>
-                      {isPending && (
+                      {needsAction && (
                         <Button
                           size="sm"
                           colorScheme="brand"
-                          leftIcon={<UserCheck size={16} />}
-                          isLoading={activating === u.id}
-                          onClick={() => setToActivate(u)}
-                          title={u.emailVerified ? "Activate account" : "Activate account (email verification will be bypassed)"}
+                          leftIcon={<ShieldCheck size={16} />}
+                          isLoading={busyId === u.id}
+                          onClick={() => setTarget(u)}
                         >
-                          {u.emailVerified ? "Activate" : "Verify & Activate"}
+                          {u.emailVerified ? "Activate" : "Verify Email"}
                         </Button>
                       )}
                     </HStack>
@@ -170,21 +168,21 @@ export default function PendingUsersPage() {
       </Box>
 
       <ConfirmDialog
-        isOpen={!!toActivate}
-        onClose={() => setToActivate(null)}
-        onConfirm={handleActivate}
-        title={toActivate?.emailVerified ? "Activate Client Account" : "Verify & Activate Client Account"}
+        isOpen={!!target}
+        onClose={() => setTarget(null)}
+        onConfirm={handleVerify}
+        title={target?.emailVerified ? "Activate Client" : "Verify Client Email"}
         message={
-          toActivate
-            ? toActivate.emailVerified
-              ? `Activate ${toActivate.firstName} ${toActivate.lastName}? They will be able to log in and start their KYC application.`
-              : `${toActivate.firstName} ${toActivate.lastName} has NOT verified their email via OTP. Activating now will bypass email verification and mark their email as verified. They will be able to log in immediately. Continue?`
+          target
+            ? target.emailVerified
+              ? `Reactivate ${target.firstName} ${target.lastName}? They will be able to log in immediately.`
+              : `Mark ${target.firstName} ${target.lastName}'s email (${target.email}) as verified? This bypasses the OTP verification step and keeps the account active.`
             : ""
         }
-        confirmText={toActivate?.emailVerified ? "Activate" : "Verify & Activate"}
+        confirmText={target?.emailVerified ? "Activate" : "Verify Email"}
         cancelText="Cancel"
         colorScheme="green"
-        isLoading={activating !== null}
+        isLoading={busyId !== null}
       />
     </VStack>
   );

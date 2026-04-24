@@ -11,12 +11,14 @@ export async function GET(req: Request) {
 
     const { searchParams } = new URL(req.url);
     const search = searchParams.get("search") || "";
-    const filter = searchParams.get("filter") || "PENDING"; // PENDING | ALL
+    const filter = searchParams.get("filter") || "PENDING"; // PENDING | SUSPENDED | ALL
 
     const where: Record<string, unknown> = { role: "CLIENT" };
 
     if (filter === "PENDING") {
       where.status = "PENDING_VERIFICATION";
+    } else if (filter === "SUSPENDED") {
+      where.status = { in: ["SUSPENDED", "DEACTIVATED"] };
     }
 
     if (search) {

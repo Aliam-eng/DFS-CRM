@@ -2,7 +2,6 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { prisma } from "./prisma";
 import { sendOtpEmail } from "./email";
-import { notifyByRole } from "./notifications";
 
 export function generateOtp(): string {
   return crypto.randomInt(100000, 999999).toString();
@@ -55,23 +54,13 @@ export async function verifyOtp(email: string, code: string, purpose: string): P
   });
 
   if (purpose === "EMAIL_VERIFICATION") {
-    // Mark email verified, but keep status PENDING_VERIFICATION
-    // — Operations/Admin/Super Admin must activate the account before the user can log in.
+    // OTP success → verify email AND activate the account so the client can log in.
+    // (If they couldn't receive the OTP, staff can do this manually from the
+    // Client Verification page.)
     await prisma.user.update({
       where: { id: user.id },
-      data: { emailVerified: true },
+      data: { emailVerified: true, status: "ACTIVE" },
     });
-
-    // Notify staff who can activate (fire-and-forget — never block OTP verification)
-    const title = "New Client Awaiting Activation";
-    const message = `${user.firstName} ${user.lastName} (${user.email}) has verified their email and is awaiting activation.`;
-    const link = "/operations/pending-users";
-
-    Promise.all([
-      notifyByRole("OPERATIONS", "GENERAL", title, message, link),
-      notifyByRole("ADMIN", "GENERAL", title, message, link),
-      notifyByRole("SUPER_ADMIN", "GENERAL", title, message, link),
-    ]).catch((err) => console.error("Failed to notify staff about new signup:", err));
   }
 
   return true;

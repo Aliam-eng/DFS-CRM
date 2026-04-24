@@ -40,7 +40,7 @@ export async function POST(req: Request) {
     await logActivity({ userId: user.id, action: "USER_REGISTERED", details: `New client registered: ${data.email}` });
 
     return NextResponse.json(
-      { message: "Registration successful. Please verify your email.", email: user.email },
+      { message: "Registration successful. Please verify your email with the OTP sent to you.", email: user.email },
       { status: 201 }
     );
   } catch (error: unknown) {
