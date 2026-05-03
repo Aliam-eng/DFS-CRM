@@ -38,6 +38,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
+import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { generateKycPdf } from "@/lib/kyc-pdf";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 
@@ -74,11 +75,16 @@ export default function ComplianceReviewDetailPage() {
 
   const [notFound, setNotFound] = useState(false);
 
-  useEffect(() => {
+  const loadKyc = () => {
     fetch(`/api/kyc/${id}`).then((r) => {
       if (!r.ok) { setNotFound(true); return null; }
       return r.json();
     }).then((data) => { if (data) setKyc(data); });
+  };
+
+  useEffect(() => {
+    loadKyc();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   const handleSubmit = async () => {
@@ -325,6 +331,9 @@ export default function ComplianceReviewDetailPage() {
             })}
           </SimpleGrid>
         </Box>
+
+        {/* Staff Document Upload */}
+        <StaffDocumentUpload kycId={kyc.id} onUploaded={loadKyc} />
 
         {/* Declaration */}
         <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={5}>

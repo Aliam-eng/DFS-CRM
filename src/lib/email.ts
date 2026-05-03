@@ -14,15 +14,31 @@ export async function sendOtpEmail(to: string, otp: string, purpose: string) {
   const subject =
     purpose === "EMAIL_VERIFICATION"
       ? "DFS - Verify Your Email"
+      : purpose === "AGREEMENT_SIGNATURE"
+      ? "DFS - Sign Your Client Agreement"
       : "DFS - Password Reset Code";
+
+  const heading =
+    purpose === "EMAIL_VERIFICATION"
+      ? "Verify Your Email"
+      : purpose === "AGREEMENT_SIGNATURE"
+      ? "Sign Your Client Agreement"
+      : "Reset Your Password";
+
+  const action =
+    purpose === "EMAIL_VERIFICATION"
+      ? "verify your email address"
+      : purpose === "AGREEMENT_SIGNATURE"
+      ? "electronically sign your DFS client agreement"
+      : "reset your password";
 
   const html = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
       <div style="text-align: center; margin-bottom: 30px;">
         <h1 style="color: #21d94f; margin: 0;">DFS</h1>
       </div>
-      <h2 style="color: #1f2937;">${purpose === "EMAIL_VERIFICATION" ? "Verify Your Email" : "Reset Your Password"}</h2>
-      <p style="color: #4b5563;">Use the following code to ${purpose === "EMAIL_VERIFICATION" ? "verify your email address" : "reset your password"}:</p>
+      <h2 style="color: #1f2937;">${heading}</h2>
+      <p style="color: #4b5563;">Use the following code to ${action}:</p>
       <div style="background: #f3f4f6; padding: 20px; text-align: center; font-size: 32px; letter-spacing: 8px; font-weight: bold; color: #1f2937; border-radius: 8px; margin: 20px 0;">
         ${otp}
       </div>

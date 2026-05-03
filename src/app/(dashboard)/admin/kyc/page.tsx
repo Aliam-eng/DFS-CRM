@@ -148,9 +148,25 @@ export default function AdminKycPage() {
     <VStack spacing={6} align="stretch">
       <Flex align="center" justify="space-between">
         <Heading size="lg">All KYC Submissions</Heading>
-        <Button variant="outline" onClick={handleExportCSV} isDisabled={exporting} isLoading={exporting} loadingText="Exporting..." leftIcon={<Icon as={Download} boxSize={4} />}>
-          Export CSV
-        </Button>
+        <HStack spacing={2}>
+          <Button
+            variant="outline"
+            onClick={() => {
+              const params = new URLSearchParams();
+              if (status) params.set("status", status);
+              if (dateFrom) params.set("dateFrom", dateFrom);
+              if (dateTo) params.set("dateTo", dateTo);
+              const qs = params.toString();
+              window.location.href = `/api/admin/kyc-export${qs ? `?${qs}` : ""}`;
+            }}
+            leftIcon={<Icon as={Download} boxSize={4} />}
+          >
+            Export to Excel
+          </Button>
+          <Button variant="outline" onClick={handleExportCSV} isDisabled={exporting} isLoading={exporting} loadingText="Exporting..." leftIcon={<Icon as={Download} boxSize={4} />}>
+            Export CSV
+          </Button>
+        </HStack>
       </Flex>
       <Flex gap={4} flexWrap="wrap" align="flex-end">
         <Select value={status} onChange={(e) => { setStatus(e.target.value === "ALL" ? "" : e.target.value); setPage(1); }} w={{ base: "full", md: "208px" }} placeholder="All Statuses">

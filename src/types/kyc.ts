@@ -159,6 +159,17 @@ export interface KycDetail {
   declarationFullName: string | null;
   declarationDate: string | null;
 
+  // Regulatory Reservation Clause
+  regulatoryClauseAccepted: boolean | null;
+  regulatoryClauseFullName: string | null;
+
+  // Client Agreement (electronic signature via OTP)
+  agreementAccepted: boolean | null;
+  agreementFullName: string | null;
+  agreementSignedAt: string | null;
+  agreementOtpVerifiedAt: string | null;
+  agreementSignatureIp: string | null;
+
   // Tracking
   currentStep: number | null;
   submittedAt: string | null;

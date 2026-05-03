@@ -75,10 +75,17 @@ export const HOME_STATUS_OPTIONS = [
 export const EMPLOYMENT_CATEGORY_OPTIONS = [
   { value: "EMPLOYED", label: "Employed / موظف" },
   { value: "SELF_EMPLOYED", label: "Self-Employed / أعمل لحسابي الخاص" },
-  { value: "BUSINESS_OWNER", label: "Business Owner / صاحب عمل" },
   { value: "RETIRED", label: "Retired / متقاعد" },
   { value: "UNEMPLOYED", label: "Unemployed / عاطل عن العمل" },
   { value: "STUDENT", label: "Student / طالب" },
+];
+
+// Additional supporting document types (optional upload in KYC)
+export const ADDITIONAL_DOCUMENT_TYPE_OPTIONS = [
+  { value: "DRIVING_LICENSE", label: "Driving License / رخصة قيادة" },
+  { value: "CIVIL_EXTRACT", label: "Civil Extract / إخراج قيد" },
+  { value: "RESIDENCE_PERMIT", label: "Residence Permit / إقامة" },
+  { value: "OTHER", label: "Other / أخرى" },
 ];
 
 // =============================================

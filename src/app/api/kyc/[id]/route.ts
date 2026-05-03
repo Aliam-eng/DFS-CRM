@@ -99,6 +99,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       "pepStatus", "pepDetails",
       // Declaration
       "declarationAccepted", "declarationFullName", "declarationDate",
+      // Regulatory Reservation Clause
+      "regulatoryClauseAccepted", "regulatoryClauseFullName",
+      // Client Agreement (signature fields)
+      "agreementAccepted", "agreementFullName",
       // Tracking
       "currentStep",
     ]);

@@ -44,9 +44,13 @@ enum DocumentType {
   PASSPORT
   NATIONAL_ID
   DRIVING_LICENCE
+  CIVIL_EXTRACT
+  RESIDENCE_PERMIT
   UTILITY_BILL
   BANK_STATEMENT
   AML_REPORT
+  STAFF_UPLOAD
+  OTHER
 }
 
 enum NotificationType {
@@ -332,6 +336,17 @@ model KycSubmission {
   declarationAccepted Boolean?  @default(false)
   declarationFullName String?
   declarationDate     DateTime?
+
+  // Regulatory Reservation Clause acceptance
+  regulatoryClauseAccepted Boolean?  @default(false)
+  regulatoryClauseFullName String?
+
+  // Client Agreement (electronic signature via OTP)
+  agreementAccepted        Boolean?  @default(false)
+  agreementFullName        String?
+  agreementSignedAt        DateTime?
+  agreementOtpVerifiedAt   DateTime?
+  agreementSignatureIp     String?
 
   // =============================================
   // FORM TRACKING

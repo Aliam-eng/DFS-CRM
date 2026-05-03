@@ -66,8 +66,8 @@ export default function AdminDashboard() {
       <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} spacing={6}>
         <StatCard label="Total Clients" value={stats.totalClients} icon={Users} iconColor="gray.400" />
         <StatCard label="Total KYC" value={stats.totalKycs} icon={FileText} iconColor="gray.400" />
-        <StatCard label="Pending Compliance" value={stats.kycByStatus.submitted} icon={ClipboardCheck} iconColor="yellow.500" valueColor="yellow.500" />
-        <StatCard label="Pending Operations" value={stats.kycByStatus.complianceApproved} icon={CheckCircle} iconColor="blue.500" valueColor="blue.500" />
+        <StatCard label="Pending Operations" value={stats.kycByStatus.submitted} icon={ClipboardCheck} iconColor="yellow.500" valueColor="yellow.500" />
+        <StatCard label="Pending Compliance" value={stats.kycByStatus.opsApproved} icon={CheckCircle} iconColor="blue.500" valueColor="blue.500" />
       </SimpleGrid>
 
       {/* Approval Rate + Turnaround */}
@@ -102,11 +102,11 @@ export default function AdminDashboard() {
           <Heading size="sm" mb={4}>KYC Pipeline</Heading>
           <VStack spacing={2} align="stretch" fontSize="sm">
             <Flex justify="space-between"><Text>Draft</Text><Text fontWeight="medium">{stats.kycByStatus.draft}</Text></Flex>
-            <Flex justify="space-between"><Text>Pending Compliance</Text><Text fontWeight="medium" color="yellow.500">{stats.kycByStatus.submitted}</Text></Flex>
-            <Flex justify="space-between"><Text>Compliance Approved</Text><Text fontWeight="medium" color="orange.500">{stats.kycByStatus.complianceApproved}</Text></Flex>
-            <Flex justify="space-between"><Text>Compliance Rejected</Text><Text fontWeight="medium" color="red.500">{stats.kycByStatus.complianceRejected}</Text></Flex>
-            <Flex justify="space-between"><Text>Fully Approved</Text><Text fontWeight="medium" color="green.500">{stats.kycByStatus.opsApproved}</Text></Flex>
+            <Flex justify="space-between"><Text>Pending Operations</Text><Text fontWeight="medium" color="yellow.500">{stats.kycByStatus.submitted}</Text></Flex>
+            <Flex justify="space-between"><Text>Pending Compliance</Text><Text fontWeight="medium" color="orange.500">{stats.kycByStatus.opsApproved}</Text></Flex>
             <Flex justify="space-between"><Text>Ops Rejected</Text><Text fontWeight="medium" color="red.500">{stats.kycByStatus.opsRejected}</Text></Flex>
+            <Flex justify="space-between"><Text>Fully Approved</Text><Text fontWeight="medium" color="green.500">{stats.kycByStatus.complianceApproved}</Text></Flex>
+            <Flex justify="space-between"><Text>Compliance Rejected</Text><Text fontWeight="medium" color="red.500">{stats.kycByStatus.complianceRejected}</Text></Flex>
           </VStack>
         </Box>
       </SimpleGrid>

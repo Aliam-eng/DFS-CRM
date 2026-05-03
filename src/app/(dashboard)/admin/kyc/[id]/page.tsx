@@ -26,6 +26,7 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
+import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { CheckCircle, XCircle, Clock, FileText, Download } from "lucide-react";
 import { generateKycPdf } from "@/lib/kyc-pdf";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
@@ -54,11 +55,16 @@ export default function AdminKycDetailPage() {
   const mutedBg = useColorModeValue("gray.100", "gray.700");
   const hoverBg = useColorModeValue("gray.50", "gray.700");
 
-  useEffect(() => {
+  const loadKyc = () => {
     fetch(`/api/kyc/${id}`).then((r) => {
       if (!r.ok) { setNotFound(true); return null; }
       return r.json();
     }).then((data) => { if (data) setKyc(data); });
+  };
+
+  useEffect(() => {
+    loadKyc();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
   if (notFound) return (
@@ -279,6 +285,9 @@ export default function AdminKycDetailPage() {
             })}
           </SimpleGrid>
         </Box>
+
+        {/* Staff Document Upload */}
+        <StaffDocumentUpload kycId={kyc.id} onUploaded={loadKyc} />
 
         {/* Review Audit Trail */}
         <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" p={5}>

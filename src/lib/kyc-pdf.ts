@@ -1,5 +1,10 @@
 import jsPDF from "jspdf";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
+import {
+  CLIENT_DECLARATION_EN,
+  REGULATORY_RESERVATION_CLAUSE_EN,
+  CLIENT_AGREEMENT_EN_SUMMARY,
+} from "@/lib/kyc-legal-texts";
 
 const PAGE_WIDTH = 210;
 const PAGE_HEIGHT = 297;
@@ -16,6 +21,10 @@ function fmt(s: string | null | undefined): string {
 
 function fmtDate(s: string | null | undefined): string {
   return s ? new Date(s).toLocaleDateString() : "-";
+}
+
+function fmtDateTime(s: string | null | undefined): string {
+  return s ? new Date(s).toLocaleString() : "-";
 }
 
 function boolStr(v: boolean | null | undefined): string {
@@ -82,6 +91,27 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
 
   function addGap(size: number = SECTION_GAP) {
     y += size;
+  }
+
+  function addParagraph(text: string) {
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(9);
+    doc.setTextColor("#000000");
+    // Split on blank lines so paragraph breaks are preserved
+    const paragraphs = text.split(/\n\s*\n/);
+    for (let p = 0; p < paragraphs.length; p++) {
+      const para = paragraphs[p].replace(/\s*\n\s*/g, " ").trim();
+      if (!para) continue;
+      const lines = doc.splitTextToSize(para, CONTENT_WIDTH);
+      for (const line of lines) {
+        checkPage(LINE_HEIGHT);
+        doc.text(line, MARGIN, y);
+        y += LINE_HEIGHT;
+      }
+      if (p < paragraphs.length - 1) {
+        y += LINE_HEIGHT / 2;
+      }
+    }
   }
 
   // ── Title ──
@@ -275,11 +305,34 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
   if (kyc.pepDetails) addFieldInline("PEP Details", kyc.pepDetails);
   addGap();
 
-  // ── Declaration ──
-  addHeader("Client Declaration");
-  addBoolField("Declaration Accepted", kyc.declarationAccepted);
-  addFieldInline("Signed Name", kyc.declarationFullName);
-  addFieldInline("Declaration Date", fmtDate(kyc.declarationDate));
+  // ── Client Declaration & Undertaking ──
+  addHeader("Client Declaration & Undertaking");
+  addParagraph(CLIENT_DECLARATION_EN);
+  addGap(4);
+  addBoolField("Accepted", kyc.declarationAccepted);
+  addFieldInline("Signed by", kyc.declarationFullName);
+  addFieldInline("Date", fmtDate(kyc.declarationDate));
+  addGap();
+
+  // ── Regulatory Reservation Clause ──
+  addHeader("Regulatory Reservation Clause");
+  addParagraph(REGULATORY_RESERVATION_CLAUSE_EN);
+  addGap(4);
+  addBoolField("Accepted", kyc.regulatoryClauseAccepted);
+  addFieldInline("Signed by", kyc.regulatoryClauseFullName);
+  addGap();
+
+  // ── Client Agreement ──
+  addHeader("Client Agreement");
+  addParagraph(CLIENT_AGREEMENT_EN_SUMMARY);
+  addGap(2);
+  addParagraph("(Arabic agreement text was displayed and accepted in the application)");
+  addGap(4);
+  addBoolField("Accepted", kyc.agreementAccepted);
+  addFieldInline("Signed by", kyc.agreementFullName);
+  addFieldInline("Signed at", fmtDateTime(kyc.agreementSignedAt));
+  addFieldInline("OTP verified at", fmtDateTime(kyc.agreementOtpVerifiedAt));
+  addFieldInline("Signature IP", kyc.agreementSignatureIp);
   addGap();
 
   // ── Review History ──

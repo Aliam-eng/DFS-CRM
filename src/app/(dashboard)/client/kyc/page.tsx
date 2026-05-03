@@ -32,6 +32,8 @@ import {
   Tr,
   Th,
   Td,
+  PinInput,
+  PinInputField,
   useColorModeValue,
   useToast,
 } from "@chakra-ui/react";
@@ -73,6 +75,14 @@ import { FormStepper } from "@/components/shared/form-stepper";
 import { FileUploadZone } from "@/components/shared/file-upload-zone";
 import { ReviewSection } from "@/components/shared/review-section";
 import { KycFormSkeleton } from "@/components/shared/loading-skeletons";
+import {
+  CLIENT_DECLARATION_EN,
+  CLIENT_DECLARATION_AR,
+  REGULATORY_RESERVATION_CLAUSE_EN,
+  REGULATORY_RESERVATION_CLAUSE_AR,
+  CLIENT_AGREEMENT_AR,
+  CLIENT_AGREEMENT_EN_SUMMARY,
+} from "@/lib/kyc-legal-texts";
 import type {
   InvestmentExperienceData,
 } from "@/types/kyc";
@@ -91,6 +101,8 @@ const STEP_CONFIG = [
   { label: "Compliance", icon: Scale, description: "Part I: General compliance questions" },
   { label: "PEP", icon: Shield, description: "Part J: Politically Exposed Person" },
   { label: "Documents", icon: Upload, description: "Upload identity & address documents" },
+  { label: "Declaration", icon: ClipboardCheck, description: "Client declaration & regulatory clause" },
+  { label: "Client Agreement", icon: FileText, description: "Sign the client agreement (OTP verification)" },
   { label: "Review & Submit", icon: ClipboardCheck, description: "Review and submit your application" },
 ];
 
@@ -120,6 +132,8 @@ export default function KycPage() {
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState("");
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [registeredPhone, setRegisteredPhone] = useState("");
   const router = useRouter();
   const toast = useToast();
 
@@ -140,7 +154,7 @@ export default function KycPage() {
       const kyc = await res.json();
       setKycId(kyc.id);
       // Set boolean defaults to false (No) if not already set
-      const BOOL_DEFAULTS = ["isUsPerson", "isActingOnBehalf", "isAssociatedWithListed", "hasOtherBankAccounts"];
+      const BOOL_DEFAULTS = ["isUsPerson", "isActingOnBehalf", "isAssociatedWithListed", "hasInsideInformation", "hasOtherBankAccounts"];
       for (const key of BOOL_DEFAULTS) {
         if (kyc[key] === null || kyc[key] === undefined) kyc[key] = false;
       }
@@ -154,6 +168,19 @@ export default function KycPage() {
       const detailRes = await fetch(`/api/kyc/${kyc.id}`);
       const detail = await detailRes.json();
       setDocs(detail.documents || []);
+      // Capture registration email/phone for later cross-validation
+      if (detail.user) {
+        setRegisteredEmail(detail.user.email || "");
+        setRegisteredPhone(detail.user.phone || "");
+        // Pre-fill KYC email/phone if empty
+        if (!kyc.emailAddress && detail.user.email) {
+          kyc.emailAddress = detail.user.email;
+        }
+        if (!kyc.phoneNumber && detail.user.phone) {
+          kyc.phoneNumber = detail.user.phone;
+        }
+        setForm({ ...kyc });
+      }
       if (kyc.status !== "DRAFT") {
         router.push("/client/kyc/status");
         return;
@@ -188,19 +215,46 @@ export default function KycPage() {
       case 0: // Personal Info
         requireString("firstName", "First name is required");
         requireString("lastName", "Last name is required");
+        requireString("middleName", "Father's name is required");
+        requireString("mothersFullName", "Mother's full name is required");
         requireString("placeOfBirth", "Place of birth is required");
         requireString("dateOfBirth", "Date of birth is required");
         requireString("gender", "Gender is required");
         requireString("nationality", "Nationality is required");
         requireString("maritalStatus", "Marital status is required");
+        // Email/phone in KYC must match registration
+        if (form.emailAddress && registeredEmail && (form.emailAddress as string).toLowerCase() !== registeredEmail.toLowerCase()) {
+          errs["emailAddress"] = "Email must match the email used at registration";
+        }
+        if (form.phoneNumber && registeredPhone) {
+          const a = (form.phoneNumber as string).replace(/\D/g, "");
+          const b = registeredPhone.replace(/\D/g, "");
+          if (a && b && a !== b) errs["phoneNumber"] = "Phone must match the phone used at registration";
+        }
         break;
       case 1: // Address
         requireString("homeStatus", "Home status is required");
         requireString("primaryCountry", "Country is required");
         requireString("primaryCity", "City is required");
+        requireString("primaryArea", "Area / Neighborhood is required");
+        requireString("primaryStreet", "Street name & number is required");
+        requireString("primaryBuilding", "Building name or number is required");
+        requireString("primaryFloor", "Floor number is required");
         break;
       case 2: // Employment
         requireString("employmentCategory", "Employment status is required");
+        if (form.employmentCategory === "EMPLOYED" || form.employmentCategory === "SELF_EMPLOYED") {
+          requireString("institutionName", "Company / institution name is required");
+        }
+        if (form.employmentCategory === "STUDENT") {
+          requireString("universityName", "University name is required");
+        }
+        if (form.isDirectorOfListed) {
+          requireString("directorCompanyName", "Name of company is required");
+          requireString("directorStockExchange", "Stock exchange is required");
+          requireString("directorPosition", "Position held is required");
+          requireString("directorAppointmentDate", "Date of appointment is required");
+        }
         break;
       case 3: // Communication — no required fields
         break;
@@ -215,20 +269,83 @@ export default function KycPage() {
           const wealth = (form.sourceOfWealth as string[]) || [];
           if (wealth.length === 0) errs["sourceOfWealth"] = "At least one source of wealth is required";
         }
+        // US Person hard block
+        if (form.isUsPerson) {
+          errs["isUsPerson"] = "U.S. Persons / non-Lebanon tax residents cannot proceed with this application.";
+        }
         break;
-      case 5: // Beneficial Owner
+      case 5: // Beneficial Owner — must explicitly answer Yes/No
+        if (form.isActingOnBehalf === undefined || form.isActingOnBehalf === null) {
+          errs["isActingOnBehalf"] = "Please answer the beneficial owner question";
+        }
+        if (form.isActingOnBehalf === true) {
+          const raw = (form.beneficialOwner || {}) as Record<string, unknown>;
+          const owners = (raw.owners as Record<string, unknown>[]) ||
+            (Object.keys(raw).length > 0 && !("owners" in raw) ? [raw] : [{}]);
+          if (owners.length === 0) {
+            errs["bo_fullName"] = "At least one beneficial owner is required";
+          }
+          owners.forEach((bo, idx) => {
+            const prefix = idx === 0 ? "bo" : `bo_${idx}`;
+            if (!bo.fullName) errs[`${prefix}_fullName`] = "Full name is required";
+            if (!bo.dateOfBirth) errs[`${prefix}_dateOfBirth`] = "Date of birth is required";
+            if (!bo.nationality) errs[`${prefix}_nationality`] = "Nationality is required";
+            const idType = bo.idType as string | undefined;
+            if (!idType) {
+              errs[`${prefix}_id`] = "Select ID or Passport";
+            } else if (idType === "ID" && !bo.idNumber) {
+              errs[`${prefix}_id`] = "ID number is required";
+            } else if (idType === "PASSPORT") {
+              if (!bo.passportNumber) errs[`${prefix}_id`] = "Passport number is required";
+              if (!bo.passportExpiryDate) {
+                errs[`${prefix}_passportExpiry`] = "Passport expiry date is required";
+              } else {
+                const expiry = new Date(bo.passportExpiryDate as string);
+                if (expiry < new Date()) errs[`${prefix}_passportExpiry`] = "Passport is expired";
+              }
+            }
+            if (!bo.relationshipToAccountHolder) errs[`${prefix}_relationship`] = "Relationship is required";
+            if (bo.ownershipPercentage === undefined || bo.ownershipPercentage === null || bo.ownershipPercentage === "") {
+              errs[`${prefix}_ownership`] = "% Ownership/Control is required";
+            }
+          });
+        }
         break;
       case 6: // Investment Profile
         requireString("investmentStrategy", "Investment strategy is required");
         requireString("investmentObjective", "Investment objective is required");
         requireString("riskTolerance", "Risk tolerance is required");
         break;
-      case 7: // Investment Experience — no required fields
+      case 7: // Investment Experience — every instrument must be answered, years if Yes
+        {
+          const exp = (form.investmentExperience || {}) as Record<string, { has?: boolean; years?: number | null }>;
+          const INSTRUMENTS: Array<{ key: string; label: string }> = [
+            { key: "securities", label: "Trading Securities" },
+            { key: "futuresCfds", label: "Trading Futures/CFDs" },
+            { key: "options", label: "Trading Options" },
+            { key: "commodities", label: "Trading Commodities" },
+            { key: "bonds", label: "Trading Bonds" },
+            { key: "forex", label: "Trading Currencies (Forex)" },
+          ];
+          for (const inst of INSTRUMENTS) {
+            const entry = exp[inst.key];
+            if (!entry || typeof entry.has !== "boolean") {
+              errs[`exp_${inst.key}`] = `${inst.label}: please answer Yes or No`;
+            } else if (entry.has && (entry.years === null || entry.years === undefined || Number(entry.years) <= 0)) {
+              errs[`exp_${inst.key}_years`] = `${inst.label}: years of experience required`;
+            }
+          }
+        }
         break;
-      case 8: // Compliance
+      case 8: // Compliance — explanations required when Yes
+        if (form.isAssociatedWithListed) requireString("associatedListedDetails", "Please explain");
+        if (form.hasInsideInformation) requireString("insideInformationDetails", "Please explain");
         break;
       case 9: // PEP
         requireString("pepStatus", "PEP status is required");
+        if (form.pepStatus === "IS_PEP" || form.pepStatus === "PEP_FAMILY_ASSOCIATE") {
+          requireString("pepDetails", "Please explain your PEP status");
+        }
         break;
       case 10: // Documents
         {
@@ -254,9 +371,21 @@ export default function KycPage() {
           if (!hasAddress) errs["addressDoc"] = "Proof of address is required";
         }
         break;
-      case 11: // Declaration
+      case 11: // Declaration + Regulatory Reservation Clause
         if (!form.declarationAccepted) errs["declarationAccepted"] = "Declaration must be accepted";
         requireString("declarationFullName", "Declaration full name is required");
+        if (!form.regulatoryClauseAccepted) errs["regulatoryClauseAccepted"] = "Regulatory Reservation Clause must be accepted";
+        requireString("regulatoryClauseFullName", "Full name is required for the regulatory clause");
+        break;
+      case 12: // Client Agreement (OTP signing)
+        if (!form.agreementAccepted) errs["agreementAccepted"] = "You must accept the client agreement";
+        requireString("agreementFullName", "Full name is required to sign the agreement");
+        if (!form.agreementOtpVerifiedAt) errs["agreementOtp"] = "Please verify the OTP code to sign the agreement";
+        break;
+      case 13: // Review & Submit — final guard, all earlier validations should pass
+        if (!form.declarationAccepted) errs["declarationAccepted"] = "Declaration must be accepted";
+        if (!form.regulatoryClauseAccepted) errs["regulatoryClauseAccepted"] = "Regulatory clause must be accepted";
+        if (!form.agreementAccepted || !form.agreementOtpVerifiedAt) errs["agreementAccepted"] = "Client agreement must be signed";
         break;
     }
 
@@ -357,7 +486,9 @@ export default function KycPage() {
       case 8: return <ComplianceStep form={form} updateField={updateField} errors={e} />;
       case 9: return <PepStep form={form} updateField={updateField} errors={e} />;
       case 10: return <DocumentsStep form={form} updateField={updateField} docs={docs} uploading={uploading} uploadFile={uploadFile} errors={e} />;
-      case 11: return <DeclarationReviewStep form={form} updateField={updateField} docs={docs} warningBg={warningBg} warningBorder={warningBorder} errors={e} />;
+      case 11: return <DeclarationStep form={form} updateField={updateField} errors={e} />;
+      case 12: return <ClientAgreementStep form={form} updateField={updateField} errors={e} kycId={kycId} />;
+      case 13: return <DeclarationReviewStep form={form} updateField={updateField} docs={docs} warningBg={warningBg} warningBorder={warningBorder} errors={e} />;
       default: return null;
     }
   };
@@ -497,13 +628,15 @@ function PersonalInfoStep({ form, updateField, errors }: StepProps) {
         </FormControl>
       </SimpleGrid>
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        <FormControl>
-          <FormLabel>{"Middle Name (Father's Name) / اسم الأب"}</FormLabel>
+        <FormControl isInvalid={!!errors.middleName}>
+          <FormLabel>{"Middle Name (Father's Name) / اسم الأب *"}</FormLabel>
           <Input value={(form.middleName as string) || ""} onChange={(e) => updateField("middleName", e.target.value)} />
+          <FormErrorMessage>{errors.middleName}</FormErrorMessage>
         </FormControl>
-        <FormControl>
-          <FormLabel>{"Mother's Full Name / اسم الأم وشهرتها"}</FormLabel>
+        <FormControl isInvalid={!!errors.mothersFullName}>
+          <FormLabel>{"Mother's Full Name / اسم الأم وشهرتها *"}</FormLabel>
           <Input value={(form.mothersFullName as string) || ""} onChange={(e) => updateField("mothersFullName", e.target.value)} />
+          <FormErrorMessage>{errors.mothersFullName}</FormErrorMessage>
         </FormControl>
       </SimpleGrid>
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
@@ -552,13 +685,15 @@ function PersonalInfoStep({ form, updateField, errors }: StepProps) {
 
       <Divider />
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        <FormControl>
+        <FormControl isInvalid={!!errors.phoneNumber}>
           <FormLabel>Phone/Mobile Number / رقم الهاتف</FormLabel>
           <Input value={(form.phoneNumber as string) || ""} onChange={(e) => updateField("phoneNumber", e.target.value)} placeholder="+961 ..." />
+          <FormErrorMessage>{errors.phoneNumber}</FormErrorMessage>
         </FormControl>
-        <FormControl>
+        <FormControl isInvalid={!!errors.emailAddress}>
           <FormLabel>Email Address / عنوان البريد الإلكتروني</FormLabel>
           <Input type="email" value={(form.emailAddress as string) || ""} onChange={(e) => updateField("emailAddress", e.target.value)} />
+          <FormErrorMessage>{errors.emailAddress}</FormErrorMessage>
         </FormControl>
       </SimpleGrid>
 
@@ -618,23 +753,27 @@ function AddressStep({ form, updateField, errors }: StepProps) {
         </FormControl>
       </SimpleGrid>
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        <FormControl>
-          <FormLabel>Area/Neighborhood / المنطقة</FormLabel>
+        <FormControl isInvalid={!!errors.primaryArea}>
+          <FormLabel>Area/Neighborhood / المنطقة *</FormLabel>
           <Input value={(form.primaryArea as string) || ""} onChange={(e) => updateField("primaryArea", e.target.value)} />
+          <FormErrorMessage>{errors.primaryArea}</FormErrorMessage>
         </FormControl>
-        <FormControl>
-          <FormLabel>Street Name & Number / اسم الشارع ورقمه</FormLabel>
+        <FormControl isInvalid={!!errors.primaryStreet}>
+          <FormLabel>Street Name & Number / اسم الشارع ورقمه *</FormLabel>
           <Input value={(form.primaryStreet as string) || ""} onChange={(e) => updateField("primaryStreet", e.target.value)} />
+          <FormErrorMessage>{errors.primaryStreet}</FormErrorMessage>
         </FormControl>
       </SimpleGrid>
       <SimpleGrid columns={{ base: 1, md: 3 }} spacing={4}>
-        <FormControl>
-          <FormLabel>Building Name or Number / المبنى</FormLabel>
+        <FormControl isInvalid={!!errors.primaryBuilding}>
+          <FormLabel>Building Name or Number / المبنى *</FormLabel>
           <Input value={(form.primaryBuilding as string) || ""} onChange={(e) => updateField("primaryBuilding", e.target.value)} />
+          <FormErrorMessage>{errors.primaryBuilding}</FormErrorMessage>
         </FormControl>
-        <FormControl>
-          <FormLabel>Floor Number / الطابق</FormLabel>
+        <FormControl isInvalid={!!errors.primaryFloor}>
+          <FormLabel>Floor Number / الطابق *</FormLabel>
           <Input value={(form.primaryFloor as string) || ""} onChange={(e) => updateField("primaryFloor", e.target.value)} />
+          <FormErrorMessage>{errors.primaryFloor}</FormErrorMessage>
         </FormControl>
         <FormControl>
           <FormLabel>Apartment Number / الشقة</FormLabel>
@@ -729,9 +868,10 @@ function OccupationStep({ form, updateField, errors }: StepProps) {
             <FormLabel>Current Profession (Position/Title)</FormLabel>
             <Input value={(form.currentProfession as string) || ""} onChange={(e) => updateField("currentProfession", e.target.value)} />
           </FormControl>
-          <FormControl>
-            <FormLabel>Institution/Company Name</FormLabel>
+          <FormControl isInvalid={!!errors.institutionName}>
+            <FormLabel>Institution/Company Name *</FormLabel>
             <Input value={(form.institutionName as string) || ""} onChange={(e) => updateField("institutionName", e.target.value)} />
+            <FormErrorMessage>{errors.institutionName}</FormErrorMessage>
           </FormControl>
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
@@ -781,9 +921,10 @@ function OccupationStep({ form, updateField, errors }: StepProps) {
         <>
           <Divider />
           <SectionHeader icon={Briefcase} label="4. Academic Information" />
-          <FormControl>
-            <FormLabel>University Name</FormLabel>
+          <FormControl isInvalid={!!errors.universityName}>
+            <FormLabel>University Name *</FormLabel>
             <Input value={(form.universityName as string) || ""} onChange={(e) => updateField("universityName", e.target.value)} />
+            <FormErrorMessage>{errors.universityName}</FormErrorMessage>
           </FormControl>
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             <FormControl>
@@ -811,23 +952,27 @@ function OccupationStep({ form, updateField, errors }: StepProps) {
       </FormControl>
       {form.isDirectorOfListed === true && (
         <>
-          <FormControl>
-            <FormLabel>Name of the Company</FormLabel>
+          <FormControl isInvalid={!!errors.directorCompanyName}>
+            <FormLabel>Name of the Company *</FormLabel>
             <Input value={(form.directorCompanyName as string) || ""} onChange={(e) => updateField("directorCompanyName", e.target.value)} />
+            <FormErrorMessage>{errors.directorCompanyName}</FormErrorMessage>
           </FormControl>
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <FormControl>
-              <FormLabel>Stock Exchange</FormLabel>
+            <FormControl isInvalid={!!errors.directorStockExchange}>
+              <FormLabel>Stock Exchange *</FormLabel>
               <Input value={(form.directorStockExchange as string) || ""} onChange={(e) => updateField("directorStockExchange", e.target.value)} />
+              <FormErrorMessage>{errors.directorStockExchange}</FormErrorMessage>
             </FormControl>
-            <FormControl>
-              <FormLabel>Position Held</FormLabel>
+            <FormControl isInvalid={!!errors.directorPosition}>
+              <FormLabel>Position Held *</FormLabel>
               <Input value={(form.directorPosition as string) || ""} onChange={(e) => updateField("directorPosition", e.target.value)} />
+              <FormErrorMessage>{errors.directorPosition}</FormErrorMessage>
             </FormControl>
           </SimpleGrid>
-          <FormControl>
-            <FormLabel>Date of Appointment</FormLabel>
+          <FormControl isInvalid={!!errors.directorAppointmentDate}>
+            <FormLabel>Date of Appointment *</FormLabel>
             <Input type="date" value={(form.directorAppointmentDate as string)?.split("T")[0] || ""} onChange={(e) => updateField("directorAppointmentDate", e.target.value)} />
+            <FormErrorMessage>{errors.directorAppointmentDate}</FormErrorMessage>
           </FormControl>
         </>
       )}
@@ -951,9 +1096,9 @@ function FinancialStep({ form, updateField, errors }: StepProps) {
       )}
 
       <Divider />
-      <SectionHeader icon={DollarSign} label="5. Accounts with Other Financial Institutions" />
+      <SectionHeader icon={DollarSign} label="5. Trading Accounts with Other Financial Institutions" />
       <FormControl>
-        <FormLabel>Do you maintain accounts with other financial institutions?</FormLabel>
+        <FormLabel>Do you maintain a trading account with other financial institutions? / هل لديك حساب تداول لدى مؤسسات مالية أخرى؟</FormLabel>
         <RadioGroup value={form.hasOtherBankAccounts === true ? "yes" : form.hasOtherBankAccounts === false ? "no" : ""} onChange={(v) => updateField("hasOtherBankAccounts", v === "yes")}>
           <Stack direction="row" spacing={4}>
             <Radio value="yes" size="sm">Yes / نعم</Radio>
@@ -970,7 +1115,7 @@ function FinancialStep({ form, updateField, errors }: StepProps) {
 
       <Divider />
       <SectionHeader icon={DollarSign} label="6. US Person / Tax Resident" />
-      <FormControl>
+      <FormControl isInvalid={!!errors.isUsPerson}>
         <FormLabel>Are you a U.S. Person or a tax resident in any jurisdiction other than Lebanon?</FormLabel>
         <RadioGroup value={form.isUsPerson === true ? "yes" : "no"} onChange={(v) => updateField("isUsPerson", v === "yes")}>
           <Stack direction="row" spacing={4}>
@@ -978,13 +1123,19 @@ function FinancialStep({ form, updateField, errors }: StepProps) {
             <Radio value="no" size="sm">No / لا</Radio>
           </Stack>
         </RadioGroup>
+        <FormErrorMessage>{errors.isUsPerson}</FormErrorMessage>
       </FormControl>
       {form.isUsPerson === true && (
-        <Alert status="warning" borderRadius="md">
+        <Alert status="error" borderRadius="md">
           <AlertIcon />
-          <Text fontSize="sm">
-            Please note that the correspondent institution does not provide services to U.S. persons; therefore, the client relationship cannot be established.
-          </Text>
+          <Box>
+            <Text fontSize="sm" fontWeight="bold">
+              U.S. Persons cannot proceed with this application.
+            </Text>
+            <Text fontSize="sm" mt={1}>
+              The correspondent institution does not provide services to U.S. persons or tax residents in jurisdictions other than Lebanon. The client relationship cannot be established. Please change this answer to &quot;No&quot; if it does not apply, or contact our support team.
+            </Text>
+          </Box>
         </Alert>
       )}
     </>
@@ -995,70 +1146,131 @@ function FinancialStep({ form, updateField, errors }: StepProps) {
    STEP 5: BENEFICIAL OWNER (Part F)
    ═══════════════════════════════════════════ */
 
-function BeneficialOwnerStep({ form, updateField }: StepProps) {
-  const bo = (form.beneficialOwner as Record<string, string>) || {};
-  const updateBo = (key: string, value: string) => {
-    updateField("beneficialOwner", { ...bo, [key]: value });
+interface BoEntry {
+  fullName?: string;
+  dateOfBirth?: string;
+  nationality?: string;
+  idType?: "ID" | "PASSPORT";
+  idNumber?: string;
+  passportNumber?: string;
+  passportExpiryDate?: string;
+  relationshipToAccountHolder?: string;
+  ownershipPercentage?: string;
+}
+
+function BeneficialOwnerStep({ form, updateField, errors }: StepProps) {
+  // Backwards compatibility: legacy data is a flat object; new data is { owners: BoEntry[] }
+  const raw = (form.beneficialOwner as Record<string, unknown>) || {};
+  const isLegacyFlat = raw && !("owners" in raw) && Object.keys(raw).length > 0;
+  const owners: BoEntry[] = (raw.owners as BoEntry[]) || (isLegacyFlat ? [raw as unknown as BoEntry] : [{}]);
+
+  const persist = (next: BoEntry[]) => {
+    updateField("beneficialOwner", { ...raw, owners: next });
   };
+  const updateOwner = (idx: number, key: keyof BoEntry, value: string) => {
+    const next = owners.map((o, i) => (i === idx ? { ...o, [key]: value } : o));
+    persist(next);
+  };
+  const addOwner = () => persist([...owners, {}]);
+  const removeOwner = (idx: number) => persist(owners.filter((_, i) => i !== idx));
+
+  // The doc inverts the question: "Are you the beneficial owner of the account?"
+  // Yes (isActingOnBehalf=false) → END; No (isActingOnBehalf=true) → details required.
+  const isOwnAccount = form.isActingOnBehalf === false;
 
   return (
     <>
       <SectionHeader icon={Users} label="Beneficial Owner / المستفيد الفعلي" />
       <FormControl>
-        <FormLabel>Are you acting on behalf of another individual or entity?</FormLabel>
-        <RadioGroup value={form.isActingOnBehalf === true ? "yes" : "no"} onChange={(v) => updateField("isActingOnBehalf", v === "yes")}>
+        <FormLabel>Are you the beneficial owner of the account? / هل أنت المستفيد الفعلي من الحساب؟ *</FormLabel>
+        <RadioGroup value={form.isActingOnBehalf === false ? "yes" : form.isActingOnBehalf === true ? "no" : ""} onChange={(v) => updateField("isActingOnBehalf", v === "no")}>
           <Stack direction="row" spacing={4}>
             <Radio value="yes" size="sm">Yes / نعم</Radio>
             <Radio value="no" size="sm">No / لا</Radio>
           </Stack>
         </RadioGroup>
+        {isOwnAccount && (
+          <Text fontSize="xs" color="gray.500" mt={2}>
+            No further details needed for this section.
+          </Text>
+        )}
       </FormControl>
 
       {form.isActingOnBehalf === true && (
-        <>
-          <Divider />
-          <Text fontSize="sm" fontWeight="medium">Beneficial Owner Details:</Text>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <FormControl>
-              <FormLabel>Full Name</FormLabel>
-              <Input value={bo.fullName || ""} onChange={(e) => updateBo("fullName", e.target.value)} />
-            </FormControl>
-            <FormControl>
-              <FormLabel>Date of Birth</FormLabel>
-              <Input type="date" value={bo.dateOfBirth || ""} onChange={(e) => updateBo("dateOfBirth", e.target.value)} />
-            </FormControl>
-          </SimpleGrid>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <FormControl>
-              <FormLabel>Nationality</FormLabel>
-              <Input value={bo.nationality || ""} onChange={(e) => updateBo("nationality", e.target.value)} />
-            </FormControl>
-            <FormControl>
-              <FormLabel>ID Number</FormLabel>
-              <Input value={bo.idNumber || ""} onChange={(e) => updateBo("idNumber", e.target.value)} />
-            </FormControl>
-          </SimpleGrid>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <FormControl>
-              <FormLabel>Passport Number</FormLabel>
-              <Input value={bo.passportNumber || ""} onChange={(e) => updateBo("passportNumber", e.target.value)} />
-            </FormControl>
-            <FormControl>
-              <FormLabel>Passport Expiry Date</FormLabel>
-              <Input type="date" value={bo.passportExpiryDate || ""} onChange={(e) => updateBo("passportExpiryDate", e.target.value)} />
-            </FormControl>
-          </SimpleGrid>
-          <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <FormControl>
-              <FormLabel>Relationship to Account Holder</FormLabel>
-              <Input value={bo.relationshipToAccountHolder || ""} onChange={(e) => updateBo("relationshipToAccountHolder", e.target.value)} />
-            </FormControl>
-            <FormControl>
-              <FormLabel>% Ownership or Control</FormLabel>
-              <Input value={bo.ownershipPercentage || ""} onChange={(e) => updateBo("ownershipPercentage", e.target.value)} />
-            </FormControl>
-          </SimpleGrid>
-        </>
+        <VStack align="stretch" spacing={6}>
+          {owners.map((owner, idx) => {
+            const e = (k: string) => errors[idx === 0 ? `bo_${k}` : `bo_${idx}_${k}`];
+            return (
+              <Box key={idx} borderWidth="1px" borderColor="gray.200" borderRadius="md" p={4}>
+                <Flex justify="space-between" align="center" mb={3}>
+                  <Text fontSize="sm" fontWeight="medium">Beneficial Owner {idx + 1} Details (all fields required)</Text>
+                  {owners.length > 1 && (
+                    <Button size="xs" variant="ghost" colorScheme="red" onClick={() => removeOwner(idx)}>
+                      Remove
+                    </Button>
+                  )}
+                </Flex>
+                <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
+                  <FormControl isInvalid={!!e("fullName")}>
+                    <FormLabel>Full Name *</FormLabel>
+                    <Input value={owner.fullName || ""} onChange={(ev) => updateOwner(idx, "fullName", ev.target.value)} />
+                    <FormErrorMessage>{e("fullName")}</FormErrorMessage>
+                  </FormControl>
+                  <FormControl isInvalid={!!e("dateOfBirth")}>
+                    <FormLabel>Date of Birth *</FormLabel>
+                    <Input type="date" value={owner.dateOfBirth || ""} onChange={(ev) => updateOwner(idx, "dateOfBirth", ev.target.value)} />
+                    <FormErrorMessage>{e("dateOfBirth")}</FormErrorMessage>
+                  </FormControl>
+                  <FormControl isInvalid={!!e("nationality")}>
+                    <FormLabel>Nationality *</FormLabel>
+                    <Input value={owner.nationality || ""} onChange={(ev) => updateOwner(idx, "nationality", ev.target.value)} />
+                    <FormErrorMessage>{e("nationality")}</FormErrorMessage>
+                  </FormControl>
+                  <FormControl isInvalid={!!e("id")}>
+                    <FormLabel>ID or Passport *</FormLabel>
+                    <Select value={owner.idType || ""} onChange={(ev) => updateOwner(idx, "idType", ev.target.value)} placeholder="Select...">
+                      <option value="ID">National ID</option>
+                      <option value="PASSPORT">Passport</option>
+                    </Select>
+                    <FormErrorMessage>{e("id")}</FormErrorMessage>
+                  </FormControl>
+                  {owner.idType === "ID" && (
+                    <FormControl isInvalid={!!e("id")}>
+                      <FormLabel>ID Number *</FormLabel>
+                      <Input value={owner.idNumber || ""} onChange={(ev) => updateOwner(idx, "idNumber", ev.target.value)} />
+                    </FormControl>
+                  )}
+                  {owner.idType === "PASSPORT" && (
+                    <>
+                      <FormControl isInvalid={!!e("id")}>
+                        <FormLabel>Passport Number *</FormLabel>
+                        <Input value={owner.passportNumber || ""} onChange={(ev) => updateOwner(idx, "passportNumber", ev.target.value)} />
+                      </FormControl>
+                      <FormControl isInvalid={!!e("passportExpiry")}>
+                        <FormLabel>Passport Expiry Date *</FormLabel>
+                        <Input type="date" value={owner.passportExpiryDate || ""} onChange={(ev) => updateOwner(idx, "passportExpiryDate", ev.target.value)} />
+                        <FormErrorMessage>{e("passportExpiry")}</FormErrorMessage>
+                      </FormControl>
+                    </>
+                  )}
+                  <FormControl isInvalid={!!e("relationship")}>
+                    <FormLabel>Relationship to Account Holder *</FormLabel>
+                    <Input value={owner.relationshipToAccountHolder || ""} onChange={(ev) => updateOwner(idx, "relationshipToAccountHolder", ev.target.value)} />
+                    <FormErrorMessage>{e("relationship")}</FormErrorMessage>
+                  </FormControl>
+                  <FormControl isInvalid={!!e("ownership")}>
+                    <FormLabel>% Ownership or Control *</FormLabel>
+                    <Input type="number" min={0} max={100} value={owner.ownershipPercentage || ""} onChange={(ev) => updateOwner(idx, "ownershipPercentage", ev.target.value)} />
+                    <FormErrorMessage>{e("ownership")}</FormErrorMessage>
+                  </FormControl>
+                </SimpleGrid>
+              </Box>
+            );
+          })}
+          <Button size="sm" variant="outline" leftIcon={<Icon as={Users} boxSize={4} />} onClick={addOwner} alignSelf="flex-start">
+            Add Another Beneficial Owner
+          </Button>
+        </VStack>
       )}
     </>
   );
@@ -1114,7 +1326,7 @@ function InvestmentProfileStep({ form, updateField, errors }: StepProps) {
    STEP 7: INVESTMENT EXPERIENCE (Part H)
    ═══════════════════════════════════════════ */
 
-function InvestmentExperienceStep({ form, updateField }: StepProps) {
+function InvestmentExperienceStep({ form, updateField, errors }: StepProps) {
   const defaultExp: InvestmentExperienceData = {
     securities: { has: false, years: null },
     futuresCfds: { has: false, years: null },
@@ -1133,10 +1345,12 @@ function InvestmentExperienceStep({ form, updateField }: StepProps) {
     updateField("investmentExperience", { ...current, [key]: item });
   };
 
+  const hasAnyError = Object.keys(errors).some((k) => k.startsWith("exp_"));
+
   return (
     <>
       <SectionHeader icon={BarChart3} label="Investment Experience / الخبرة في الاستثمار" />
-      <Text fontSize="sm" color="gray.500">Do you have investment experience? (Check all that apply)</Text>
+      <Text fontSize="sm" color="gray.500">Do you have investment experience? * (please answer for every instrument)</Text>
 
       <Box overflowX="auto">
         <Table size="sm" variant="simple">
@@ -1151,9 +1365,13 @@ function InvestmentExperienceStep({ form, updateField }: StepProps) {
           <Tbody>
             {INVESTMENT_INSTRUMENT_OPTIONS.map((inst) => {
               const item = (exp as unknown as Record<string, { has: boolean; years: number | null }>)[inst.key] || { has: false, years: null };
+              const rowErr = errors[`exp_${inst.key}`] || errors[`exp_${inst.key}_years`];
               return (
                 <Tr key={inst.key}>
-                  <Td fontSize="sm">{inst.label}</Td>
+                  <Td fontSize="sm">
+                    {inst.label} *
+                    {rowErr && <Text fontSize="xs" color="red.500" mt={1}>{rowErr}</Text>}
+                  </Td>
                   <Td textAlign="center">
                     <Radio isChecked={item.has === true} onChange={() => updateExp(inst.key, "has", true)} size="sm" value="yes" />
                   </Td>
@@ -1162,7 +1380,7 @@ function InvestmentExperienceStep({ form, updateField }: StepProps) {
                   </Td>
                   <Td>
                     {item.has && (
-                      <Input size="sm" type="number" min={0} w="80px" value={item.years ?? ""} onChange={(e) => updateExp(inst.key, "years", e.target.value ? parseInt(e.target.value) : null)} />
+                      <Input size="sm" type="number" min={1} w="80px" value={item.years ?? ""} onChange={(e) => updateExp(inst.key, "years", e.target.value ? parseInt(e.target.value) : null)} placeholder="Years *" />
                     )}
                   </Td>
                 </Tr>
@@ -1171,6 +1389,12 @@ function InvestmentExperienceStep({ form, updateField }: StepProps) {
           </Tbody>
         </Table>
       </Box>
+      {hasAnyError && (
+        <Alert status="error" borderRadius="md" mt={2}>
+          <AlertIcon />
+          <Text fontSize="sm">Please answer Yes/No for every instrument. If Yes, the years of experience field is required.</Text>
+        </Alert>
+      )}
     </>
   );
 }
@@ -1179,17 +1403,17 @@ function InvestmentExperienceStep({ form, updateField }: StepProps) {
    STEP 8: GENERAL COMPLIANCE (Part I)
    ═══════════════════════════════════════════ */
 
-function ComplianceStep({ form, updateField }: StepProps) {
+function ComplianceStep({ form, updateField, errors }: StepProps) {
   return (
     <>
-      <SectionHeader icon={Scale} label="General Compliance Questions / أسئلة عامة للتوافق التنظيمي" />
+      <SectionHeader icon={Scale} label="General Compliance Questions / أسئلة عامة للإمتثال" />
 
       <FormControl>
         <FormLabel fontSize="sm">
-          Are you, your spouse, or any relative living in the same household: an employee, principal, owner of more than 10% equity interest, or an associated person of a publicly listed company? Or have access to non-public or inside information from any entity listed on a stock exchange?
+          Are you, your spouse, or any relative living in the same household: an employee, principal, owner of more than 10% equity interest, or an associated person of a publicly listed company?
         </FormLabel>
         <Text fontSize="xs" color="gray.500" mb={2}>
-          هل أنت أو زوجك/زوجتك أو أي قريب يقيم معك في نفس المنزل: موظف أو شريك أو مالك لأكثر من 10٪ من الحصص في شركة مدرجة في البورصة، أو لديك حق الوصول إلى معلومات غير علنية أو داخلية لأي كيان مدرج في البورصة؟
+          هل أنت أو زوجك/زوجتك أو أي قريب يقيم معك في نفس المنزل: موظف أو شريك أو مالك لأكثر من 10٪ من الحصص في شركة مدرجة في البورصة؟
         </Text>
         <RadioGroup value={form.isAssociatedWithListed === true ? "yes" : "no"} onChange={(v) => updateField("isAssociatedWithListed", v === "yes")}>
           <Stack direction="row" spacing={4}>
@@ -1198,7 +1422,33 @@ function ComplianceStep({ form, updateField }: StepProps) {
           </Stack>
         </RadioGroup>
         {form.isAssociatedWithListed === true && (
-          <Textarea mt={2} placeholder="If yes, please explain / في حال الإجابة بنعم، يرجى التوضيح" value={(form.associatedListedDetails as string) || ""} onChange={(e) => updateField("associatedListedDetails", e.target.value)} />
+          <FormControl isInvalid={!!errors.associatedListedDetails} mt={2}>
+            <Textarea placeholder="Please explain * / يرجى التوضيح" value={(form.associatedListedDetails as string) || ""} onChange={(e) => updateField("associatedListedDetails", e.target.value)} />
+            <FormErrorMessage>{errors.associatedListedDetails}</FormErrorMessage>
+          </FormControl>
+        )}
+      </FormControl>
+
+      <Divider />
+
+      <FormControl>
+        <FormLabel fontSize="sm">
+          Do you have access to non-public or inside information from any entity listed on a stock exchange?
+        </FormLabel>
+        <Text fontSize="xs" color="gray.500" mb={2}>
+          هل لديك حق الوصول إلى معلومات غير علنية أو داخلية لأي كيان مدرج في البورصة؟
+        </Text>
+        <RadioGroup value={form.hasInsideInformation === true ? "yes" : "no"} onChange={(v) => updateField("hasInsideInformation", v === "yes")}>
+          <Stack direction="row" spacing={4}>
+            <Radio value="yes" size="sm">Yes / نعم</Radio>
+            <Radio value="no" size="sm">No / لا</Radio>
+          </Stack>
+        </RadioGroup>
+        {form.hasInsideInformation === true && (
+          <FormControl isInvalid={!!errors.insideInformationDetails} mt={2}>
+            <Textarea placeholder="Please explain * / يرجى التوضيح" value={(form.insideInformationDetails as string) || ""} onChange={(e) => updateField("insideInformationDetails", e.target.value)} />
+            <FormErrorMessage>{errors.insideInformationDetails}</FormErrorMessage>
+          </FormControl>
         )}
       </FormControl>
     </>
@@ -1224,9 +1474,10 @@ function PepStep({ form, updateField, errors }: StepProps) {
       </FormControl>
 
       {(form.pepStatus === "IS_PEP" || form.pepStatus === "PEP_FAMILY_ASSOCIATE") && (
-        <FormControl>
-          <FormLabel>Please explain:</FormLabel>
+        <FormControl isInvalid={!!errors.pepDetails}>
+          <FormLabel>Please explain *</FormLabel>
           <Textarea value={(form.pepDetails as string) || ""} onChange={(e) => updateField("pepDetails", e.target.value)} />
+          <FormErrorMessage>{errors.pepDetails}</FormErrorMessage>
         </FormControl>
       )}
     </>
@@ -1262,7 +1513,7 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
     ["UTILITY_BILL", "BANK_STATEMENT"].includes(d.documentType as string)
   );
   const hasAdditionalDoc = docs.some((d) =>
-    ["DRIVING_LICENCE"].includes(d.documentType as string)
+    ["DRIVING_LICENCE", "CIVIL_EXTRACT", "RESIDENCE_PERMIT", "OTHER"].includes(d.documentType as string)
   );
 
   const idFrontDoc = docs.find(
@@ -1275,7 +1526,7 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
     ["UTILITY_BILL", "BANK_STATEMENT"].includes(d.documentType as string)
   );
   const additionalDoc = docs.find((d) =>
-    ["DRIVING_LICENCE"].includes(d.documentType as string)
+    ["DRIVING_LICENCE", "CIVIL_EXTRACT", "RESIDENCE_PERMIT", "OTHER"].includes(d.documentType as string)
   );
 
   return (
@@ -1327,12 +1578,12 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
         {idType && (
           <>
             <Text fontSize="xs" color={mutedColor} mt={1} mb={1}>
-              Upload a clear copy of your {idType === "PASSPORT" ? "passport" : "national ID"} (front and back)
+              Upload a clear copy of your {idType === "PASSPORT" ? "passport (main page with photo and the page with mother's details)" : "national ID (front and back)"}
             </Text>
             {errors.identityDoc && <Text fontSize="xs" color="red.500" mb={2}>{errors.identityDoc}</Text>}
             <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
               <FileUploadZone
-                label="Front Side"
+                label={idType === "PASSPORT" ? "Main page (with photo)" : "Front Side"}
                 isUploaded={hasIdFront}
                 uploadedFileName={idFrontDoc?.fileName as string}
                 uploadedFileSize={idFrontDoc?.fileSize as number}
@@ -1340,7 +1591,7 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
                 onFileSelect={(f) => uploadFile(f, "kyc-documents", idType, "front")}
               />
               <FileUploadZone
-                label="Back Side"
+                label={idType === "PASSPORT" ? "Page with mother's details" : "Back Side"}
                 isUploaded={hasIdBack}
                 uploadedFileName={idBackDoc?.fileName as string}
                 uploadedFileSize={idBackDoc?.fileSize as number}
@@ -1360,7 +1611,7 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
         </Text>
         {errors.addressDoc && <Text fontSize="xs" color="red.500" mb={2}>{errors.addressDoc}</Text>}
         <FileUploadZone
-          label="Address Document"
+          label="Proof of Address"
           isUploaded={hasProofOfAddress}
           uploadedFileName={addressDoc?.fileName as string}
           uploadedFileSize={addressDoc?.fileSize as number}
@@ -1378,12 +1629,20 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
         <FormControl mb={3}>
           <FormLabel>Document Type</FormLabel>
           <Select value={additionalDocType} onChange={(e) => setAdditionalDocType(e.target.value)} placeholder="Select document type...">
-            <option value="DRIVING_LICENCE">Driving Licence</option>
+            <option value="DRIVING_LICENCE">Driving License / رخصة قيادة</option>
+            <option value="CIVIL_EXTRACT">Civil Extract / إخراج قيد</option>
+            <option value="RESIDENCE_PERMIT">Residence Permit / إقامة</option>
+            <option value="OTHER">Other / أخرى</option>
           </Select>
         </FormControl>
         {additionalDocType && (
           <FileUploadZone
-            label={additionalDocType === "DRIVING_LICENCE" ? "Driving Licence" : "Document"}
+            label={
+              additionalDocType === "DRIVING_LICENCE" ? "Driving License" :
+              additionalDocType === "CIVIL_EXTRACT" ? "Civil Extract" :
+              additionalDocType === "RESIDENCE_PERMIT" ? "Residence Permit" :
+              "Other Document"
+            }
             isUploaded={hasAdditionalDoc}
             uploadedFileName={additionalDoc?.fileName as string}
             uploadedFileSize={additionalDoc?.fileSize as number}
@@ -1406,7 +1665,269 @@ interface DeclarationReviewStepProps extends StepProps {
   warningBorder: string;
 }
 
-function DeclarationReviewStep({ form, updateField, docs, warningBg, warningBorder, errors }: DeclarationReviewStepProps) {
+/* ═══════════════════════════════════════════
+   STEP 11: DECLARATION + REGULATORY CLAUSE
+   ═══════════════════════════════════════════ */
+
+function DeclarationStep({ form, updateField, errors }: StepProps) {
+  return (
+    <VStack spacing={4} align="stretch">
+      <Box p={5} borderWidth="1px" borderRadius="lg" fontSize="sm">
+        <Heading size="sm" mb={3} color="brand.600">
+          Client Declaration &amp; Undertaking / إقرار وتعهد العميل
+        </Heading>
+        <Text whiteSpace="pre-wrap" fontSize="xs" color="gray.700" lineHeight="tall" mb={4}>
+          {CLIENT_DECLARATION_EN}
+        </Text>
+        <Divider my={3} />
+        <Text whiteSpace="pre-wrap" fontSize="xs" color="gray.600" lineHeight="tall" dir="rtl">
+          {CLIENT_DECLARATION_AR}
+        </Text>
+
+        <VStack spacing={3} align="stretch" mt={4}>
+          <FormControl isInvalid={!!errors.declarationAccepted}>
+            <Checkbox
+              isChecked={form.declarationAccepted as boolean || false}
+              onChange={(e) => {
+                updateField("declarationAccepted", e.target.checked);
+                if (e.target.checked) updateField("declarationDate", new Date().toISOString());
+              }}
+              colorScheme="brand"
+            >
+              <Text fontSize="sm" fontWeight="medium">I accept this declaration / أوافق على هذا الإقرار *</Text>
+            </Checkbox>
+            <FormErrorMessage>{errors.declarationAccepted}</FormErrorMessage>
+          </FormControl>
+          <FormControl isInvalid={!!errors.declarationFullName}>
+            <FormLabel>Full Name (as signature) *</FormLabel>
+            <Input
+              value={(form.declarationFullName as string) || ""}
+              onChange={(e) => updateField("declarationFullName", e.target.value)}
+              placeholder="First Name / Father's Name / Family Name"
+            />
+            <FormErrorMessage>{errors.declarationFullName}</FormErrorMessage>
+          </FormControl>
+        </VStack>
+      </Box>
+
+      <Box p={5} borderWidth="1px" borderColor="orange.200" borderRadius="lg" fontSize="sm" bg="orange.50">
+        <Heading size="sm" mb={3} color="orange.700">
+          Regulatory Reservation Clause / بند احتياطي تنظيمي
+        </Heading>
+        <Text fontSize="xs" color="gray.700" lineHeight="tall" mb={3}>
+          {REGULATORY_RESERVATION_CLAUSE_EN}
+        </Text>
+        <Divider my={3} />
+        <Text fontSize="xs" color="gray.600" lineHeight="tall" dir="rtl" mb={4}>
+          {REGULATORY_RESERVATION_CLAUSE_AR}
+        </Text>
+
+        <VStack spacing={3} align="stretch">
+          <FormControl isInvalid={!!errors.regulatoryClauseAccepted}>
+            <Checkbox
+              isChecked={form.regulatoryClauseAccepted as boolean || false}
+              onChange={(e) => updateField("regulatoryClauseAccepted", e.target.checked)}
+              colorScheme="orange"
+            >
+              <Text fontSize="sm" fontWeight="medium">I accept the Regulatory Reservation Clause / أوافق على بند التحفظ التنظيمي *</Text>
+            </Checkbox>
+            <FormErrorMessage>{errors.regulatoryClauseAccepted}</FormErrorMessage>
+          </FormControl>
+          <FormControl isInvalid={!!errors.regulatoryClauseFullName}>
+            <FormLabel>Full Name (as signature) *</FormLabel>
+            <Input
+              value={(form.regulatoryClauseFullName as string) || ""}
+              onChange={(e) => updateField("regulatoryClauseFullName", e.target.value)}
+              placeholder="First Name / Father's Name / Family Name"
+            />
+            <FormErrorMessage>{errors.regulatoryClauseFullName}</FormErrorMessage>
+          </FormControl>
+        </VStack>
+      </Box>
+    </VStack>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   STEP 12: CLIENT AGREEMENT (OTP signature)
+   ═══════════════════════════════════════════ */
+
+interface ClientAgreementStepProps extends StepProps {
+  kycId: string;
+}
+
+function ClientAgreementStep({ form, updateField, errors, kycId }: ClientAgreementStepProps) {
+  const [otp, setOtp] = useState("");
+  const [sending, setSending] = useState(false);
+  const [verifying, setVerifying] = useState(false);
+  const [otpSent, setOtpSent] = useState(false);
+  const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
+  const toast = useToast();
+
+  const isSigned = !!form.agreementOtpVerifiedAt;
+
+  const sendCode = async () => {
+    setSending(true);
+    setFeedback(null);
+    const res = await fetch(`/api/kyc/${kycId}/sign-agreement`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "send" }),
+    });
+    setSending(false);
+    if (!res.ok) {
+      const d = await res.json();
+      setFeedback({ type: "error", msg: d.error || "Failed to send code" });
+      return;
+    }
+    setOtpSent(true);
+    toast({ title: "Verification code sent to your email", status: "success", duration: 3000 });
+  };
+
+  const verifyCode = async () => {
+    if (!form.agreementFullName) {
+      setFeedback({ type: "error", msg: "Please enter your full name first" });
+      return;
+    }
+    if (otp.length !== 6) {
+      setFeedback({ type: "error", msg: "Enter the 6-digit code" });
+      return;
+    }
+    setVerifying(true);
+    setFeedback(null);
+    const res = await fetch(`/api/kyc/${kycId}/sign-agreement`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "verify", code: otp, fullName: form.agreementFullName }),
+    });
+    setVerifying(false);
+    const data = await res.json();
+    if (!res.ok) {
+      setFeedback({ type: "error", msg: data.error || "Verification failed" });
+      return;
+    }
+    updateField("agreementOtpVerifiedAt", data.agreementOtpVerifiedAt);
+    updateField("agreementSignedAt", data.agreementSignedAt);
+    setFeedback({ type: "success", msg: "Agreement signed successfully" });
+    toast({ title: "Agreement signed", status: "success", duration: 3000 });
+  };
+
+  return (
+    <VStack spacing={4} align="stretch">
+      <Box p={5} borderWidth="1px" borderRadius="lg" fontSize="sm" maxH="500px" overflowY="auto">
+        <Heading size="sm" mb={3} color="brand.600">
+          Client Agreement / اتفاقية العميل
+        </Heading>
+        <Text fontSize="xs" color="gray.700" lineHeight="tall" mb={4}>
+          {CLIENT_AGREEMENT_EN_SUMMARY}
+        </Text>
+        <Divider my={3} />
+        <Text whiteSpace="pre-wrap" fontSize="xs" color="gray.600" lineHeight="tall" dir="rtl">
+          {CLIENT_AGREEMENT_AR}
+        </Text>
+      </Box>
+
+      <Box p={5} borderWidth="1px" borderColor={isSigned ? "green.200" : "blue.200"} borderRadius="lg" bg={isSigned ? "green.50" : "blue.50"}>
+        <Heading size="sm" mb={3}>
+          Electronic Signature / التوقيع الإلكتروني
+        </Heading>
+
+        <VStack spacing={4} align="stretch">
+          <FormControl isInvalid={!!errors.agreementAccepted}>
+            <Checkbox
+              isChecked={form.agreementAccepted as boolean || false}
+              isDisabled={isSigned}
+              onChange={(e) => updateField("agreementAccepted", e.target.checked)}
+              colorScheme="brand"
+            >
+              <Text fontSize="sm" fontWeight="medium">
+                I have read and fully understood this agreement and release the First Party from any liability arising from my failure to understand any of its terms.
+              </Text>
+            </Checkbox>
+            <FormErrorMessage>{errors.agreementAccepted}</FormErrorMessage>
+          </FormControl>
+
+          <FormControl isInvalid={!!errors.agreementFullName}>
+            <FormLabel>Full Name (as signature) *</FormLabel>
+            <Input
+              value={(form.agreementFullName as string) || ""}
+              isDisabled={isSigned}
+              onChange={(e) => updateField("agreementFullName", e.target.value)}
+              placeholder="First Name / Father's Name / Family Name"
+            />
+            <FormErrorMessage>{errors.agreementFullName}</FormErrorMessage>
+          </FormControl>
+
+          {!isSigned && (
+            <>
+              {!otpSent ? (
+                <Button
+                  colorScheme="brand"
+                  isLoading={sending}
+                  isDisabled={!form.agreementAccepted || !form.agreementFullName}
+                  onClick={sendCode}
+                  leftIcon={<Icon as={MessageSquare} boxSize={4} />}
+                >
+                  Send verification code to my email
+                </Button>
+              ) : (
+                <>
+                  <FormControl isInvalid={!!errors.agreementOtp}>
+                    <FormLabel>Enter the 6-digit code from your email *</FormLabel>
+                    <HStack>
+                      <PinInput value={otp} onChange={setOtp} otp size="lg">
+                        <PinInputField />
+                        <PinInputField />
+                        <PinInputField />
+                        <PinInputField />
+                        <PinInputField />
+                        <PinInputField />
+                      </PinInput>
+                    </HStack>
+                    <FormErrorMessage>{errors.agreementOtp}</FormErrorMessage>
+                  </FormControl>
+                  <HStack>
+                    <Button colorScheme="brand" onClick={verifyCode} isLoading={verifying} isDisabled={otp.length !== 6}>
+                      Sign agreement
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={sendCode} isLoading={sending}>
+                      Resend code
+                    </Button>
+                  </HStack>
+                </>
+              )}
+            </>
+          )}
+
+          {isSigned && (
+            <Alert status="success" borderRadius="md">
+              <AlertIcon />
+              <Box>
+                <Text fontSize="sm" fontWeight="bold">Agreement signed</Text>
+                <Text fontSize="xs">
+                  Signed by {form.agreementFullName as string} on {form.agreementSignedAt ? new Date(form.agreementSignedAt as string).toLocaleString() : "now"}.
+                </Text>
+              </Box>
+            </Alert>
+          )}
+
+          {feedback && !isSigned && (
+            <Alert status={feedback.type} borderRadius="md">
+              <AlertIcon />
+              <Text fontSize="sm">{feedback.msg}</Text>
+            </Alert>
+          )}
+        </VStack>
+      </Box>
+    </VStack>
+  );
+}
+
+/* ═══════════════════════════════════════════
+   STEP 13: REVIEW & SUBMIT
+   ═══════════════════════════════════════════ */
+
+function DeclarationReviewStep({ form, docs, warningBg, warningBorder }: DeclarationReviewStepProps) {
   return (
     <VStack spacing={4} align="stretch">
       {/* Review sections */}
@@ -1499,78 +2020,17 @@ function DeclarationReviewStep({ form, updateField, docs, warningBg, warningBord
         ]}
       />
 
-      {/* Declaration */}
-      <Divider />
-      <Box p={4} borderWidth="1px" borderRadius="lg" fontSize="sm">
-        <Heading size="xs" mb={3}>Client Declaration & Undertaking / إقرار وتعهد العميل</Heading>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I, the undersigned, hereby declare that all information and documents provided in this Know Your Customer (KYC) form are true, complete, and accurate to the best of my knowledge. I understand that providing false or misleading information may result in the termination of my engagement or relationship with Diligent Financial Services (&ldquo;DFS&rdquo;).
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I expressly acknowledge and agree to the following: I authorize Diligent Financial Services (&ldquo;DFS&rdquo;) to verify and validate the information and documentation provided, and to collect, process, store, and share my personal data in accordance with applicable data protection laws, solely for regulatory, compliance, and risk management purposes.
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I confirm that I have carefully read, understood, and accepted the Account Opening Terms and Conditions, the Risk Warning documents, and all other related regulatory disclosures&mdash;whether provided in physical form or made available on the official DFS website.
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I undertake to comply fully with all applicable laws and regulations issued by the Capital Markets Authority (CMA) and other competent regulatory authorities in Lebanon, as well as all applicable international laws and standards, including those relating to anti-money laundering (AML) and counter-financing of terrorism (CFT).
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I confirm that I am not subject to any international sanctions, asset freeze, or restrictive measures issued by OFAC, the European Union (EU), the United Nations (UN), or any other competent authority.
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I undertake to promptly inform Diligent Financial Services (DFS) of any material change to the information provided in this KYC form, including but not limited to changes in my financial situation, employment status, residency, or regulatory status.
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I acknowledge that DFS provides advisory and arranging services only, and that I fully understand the nature of the advisory and arranging services offered by DFS, including the inherent risks involved&mdash;such as the potential total loss of capital&mdash;and I accept full responsibility for all investment decisions made independently by me, based on the advice or arrangements facilitated by DFS.
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I confirm that I am at least eighteen (18) years old and legally capable of entering into this agreement, and that I fully understand and accept the risks inherent in financial market activities.
-        </Text>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          This declaration is made voluntarily, with full understanding of its content, legal implications, and the risks and consequences arising from the nature of financial market activities and the advisory and arranging services provided.
-        </Text>
-
-        <Heading size="xs" mt={4} mb={2} color="red.600">Regulatory Reservation Clause / بند التحفظ التنظيمي</Heading>
-        <Text fontSize="xs" color="gray.600" mb={2} lineHeight="tall">
-          I acknowledge and agree that Diligent Financial Services (DFS) may request any additional documentation or information necessary to comply with applicable laws, AML/CFT regulations, or internal risk management requirements, whether before or after establishing the client relationship.
-        </Text>
-
-        <Divider my={3} />
-        <Text fontSize="xs" color="gray.500" mb={2} lineHeight="tall" dir="rtl">
-          أنا الموقّع أدناه، أصرّح بأن جميع المعلومات والمستندات المقدمة في نموذج &quot;اعرف عميلك&quot; (KYC) صحيحة وكاملة ودقيقة بحسب أفضل علمي ومعرفتي. أفهم أن تقديم أي معلومات كاذبة أو مضللة قد يؤدي إلى إنهاء علاقتي أو تعاملي مع شركة الخدمات المالية الدقيقة ش.م.ل. (&laquo;DFS&raquo;).
-        </Text>
-        <Text fontSize="xs" color="gray.500" mb={2} lineHeight="tall" dir="rtl">
-          أوافق صراحةً وأقر بما يلي: أفوّض شركة الخدمات المالية الدقيقة (&laquo;DFS&raquo;) بالتحقق من صحة المعلومات والمستندات المقدمة والتثبّت منها، وبجمع بياناتي الشخصية ومعالجتها وتخزينها ومشاركتها وفقاً لقوانين حماية البيانات المعمول بها، وذلك حصراً لأغراض الامتثال التنظيمي وإدارة المخاطر.
-        </Text>
-        <Text fontSize="xs" color="gray.500" mb={2} lineHeight="tall" dir="rtl">
-          أتعهد بالامتثال الكامل لجميع القوانين واللوائح المعمول بها الصادرة عن هيئة الأسواق المالية (CMA) والسلطات التنظيمية المختصة الأخرى في لبنان، وكذلك جميع القوانين والمعايير الدولية المعمول بها بما في ذلك مكافحة غسل الأموال وتمويل الإرهاب.
-        </Text>
-        <Text fontSize="xs" color="gray.500" mb={4} lineHeight="tall" dir="rtl">
-          أقرّ وأوافق على أنه يحق لشركة الخدمات المالية الدقيقة (DFS) طلب أي وثائق أو معلومات إضافية ضرورية للامتثال للقوانين المعمول بها أو لوائح مكافحة غسل الأموال وتمويل الإرهاب أو متطلبات إدارة المخاطر الداخلية، سواء قبل أو بعد إنشاء علاقة العميل.
-        </Text>
-
-        <VStack spacing={3} align="stretch">
-          <FormControl isInvalid={!!errors.declarationAccepted}>
-            <Checkbox
-              isChecked={form.declarationAccepted as boolean || false}
-              onChange={(e) => {
-                updateField("declarationAccepted", e.target.checked);
-                if (e.target.checked) updateField("declarationDate", new Date().toISOString());
-              }}
-              colorScheme="brand"
-            >
-              <Text fontSize="sm" fontWeight="medium">I accept this declaration / أوافق على هذا الإقرار *</Text>
-            </Checkbox>
-            <FormErrorMessage>{errors.declarationAccepted}</FormErrorMessage>
-          </FormControl>
-          <FormControl isInvalid={!!errors.declarationFullName}>
-            <FormLabel>Full Name (as signature) *</FormLabel>
-            <Input value={(form.declarationFullName as string) || ""} onChange={(e) => updateField("declarationFullName", e.target.value)} placeholder="First Name / Father's Name / Family Name" />
-            <FormErrorMessage>{errors.declarationFullName}</FormErrorMessage>
-          </FormControl>
-        </VStack>
-      </Box>
+      {/* Signature summary */}
+      <ReviewSection
+        icon={ClipboardCheck}
+        title="Signatures"
+        accentColor="green.500"
+        fields={[
+          { label: "Declaration", value: form.declarationAccepted ? `Accepted by ${form.declarationFullName || "-"}` : "Not accepted" },
+          { label: "Regulatory Clause", value: form.regulatoryClauseAccepted ? `Accepted by ${form.regulatoryClauseFullName || "-"}` : "Not accepted" },
+          { label: "Client Agreement", value: form.agreementOtpVerifiedAt ? `Signed by ${form.agreementFullName || "-"} on ${new Date(form.agreementSignedAt as string).toLocaleString()}` : "Not signed" },
+        ]}
+      />
 
       <Box bg={warningBg} borderWidth="1px" borderColor={warningBorder} p={4} borderRadius="lg" fontSize="sm">
         <HStack spacing={2}>

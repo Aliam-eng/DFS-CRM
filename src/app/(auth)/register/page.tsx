@@ -62,7 +62,7 @@ export default function RegisterPage() {
           firstName: form.firstName,
           lastName: form.lastName,
           email: form.email,
-          phone: form.phone || undefined,
+          phone: form.phone,
           password: form.password,
         }),
       });
@@ -164,8 +164,8 @@ export default function RegisterPage() {
               />
             </FormControl>
 
-            <FormControl>
-              <FormLabel htmlFor="phone">Phone (optional)</FormLabel>
+            <FormControl isRequired>
+              <FormLabel htmlFor="phone">Phone</FormLabel>
               <Input
                 id="phone"
                 type="tel"
