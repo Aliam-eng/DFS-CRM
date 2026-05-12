@@ -18,6 +18,11 @@ import {
   Flex,
   SimpleGrid,
   Link as ChakraLink,
+  RadioGroup,
+  Radio,
+  Stack,
+  Alert,
+  AlertIcon,
   useToast,
   useColorModeValue,
 } from "@chakra-ui/react";
@@ -30,6 +35,7 @@ export default function RegisterPage() {
     phone: "",
     password: "",
     confirmPassword: "",
+    isUsPerson: undefined as boolean | undefined,
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -53,6 +59,14 @@ export default function RegisterPage() {
       setError("Password must be at least 8 characters");
       return;
     }
+    if (form.isUsPerson === undefined) {
+      setError("Please answer the U.S. Person / tax resident question");
+      return;
+    }
+    if (form.isUsPerson === true) {
+      setError("U.S. Persons and tax residents in jurisdictions other than Lebanon cannot register for this service.");
+      return;
+    }
     setLoading(true);
     try {
       const res = await fetch("/api/register", {
@@ -64,6 +78,7 @@ export default function RegisterPage() {
           email: form.email,
           phone: form.phone,
           password: form.password,
+          isUsPerson: form.isUsPerson,
         }),
       });
       const data = await res.json();
@@ -199,12 +214,36 @@ export default function RegisterPage() {
               />
             </FormControl>
 
+            <FormControl isRequired>
+              <FormLabel>
+                Are you a U.S. Person or a tax resident in any jurisdiction other than Lebanon?
+              </FormLabel>
+              <RadioGroup
+                value={form.isUsPerson === true ? "yes" : form.isUsPerson === false ? "no" : ""}
+                onChange={(v) => setForm({ ...form, isUsPerson: v === "yes" })}
+              >
+                <Stack direction="row" spacing={6}>
+                  <Radio value="yes">Yes / نعم</Radio>
+                  <Radio value="no">No / لا</Radio>
+                </Stack>
+              </RadioGroup>
+              {form.isUsPerson === true && (
+                <Alert status="error" borderRadius="md" mt={2}>
+                  <AlertIcon />
+                  <Text fontSize="sm">
+                    U.S. Persons and tax residents in jurisdictions other than Lebanon cannot register for this service.
+                  </Text>
+                </Alert>
+              )}
+            </FormControl>
+
             <Button
               type="submit"
               size="lg"
               w="full"
               fontWeight="600"
               isLoading={loading}
+              isDisabled={form.isUsPerson === true}
               loadingText="Creating Account..."
             >
               Register

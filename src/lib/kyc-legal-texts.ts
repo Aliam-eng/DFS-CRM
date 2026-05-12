@@ -2,7 +2,12 @@
  * Legal text content used in the KYC form's declaration, regulatory reservation
  * clause, and client agreement steps. Kept here so PDF export and the form UI
  * use the exact same source text.
+ *
+ * For paragraphs that should be rendered bold in the UI / PDF, see the
+ * matching `_BOLD` arrays below.
  */
+
+export type LegalParagraph = { text: string; bold?: boolean };
 
 export const CLIENT_DECLARATION_EN = `I, the undersigned, hereby declare that all information and documents provided in this Know Your Customer (KYC) form are true, complete, and accurate to the best of my knowledge. I understand that providing false or misleading information may result in the termination of my engagement or relationship with Diligent Financial Services ("DFS").
 
@@ -111,9 +116,41 @@ export const CLIENT_AGREEMENT_AR = `أولاً: الفريق الأول
 
 التوقيع الإلكتروني
 يعتبر ما يلي بمثابة توقيع قانوني ملزم:
-• الضغط على الرابط "لقد قرأت وفهمت كامل هذه الاتفاقية بشكل نافي للجهالة وأعفي الفريق الأول من أية مسؤولية ناتجة عن عدم فهمي لأي بند من بنودها".
-• إدخال رمز التحقق (OTP)
+الضغط على المربع "لقد قرأت وفهمت كامل هذه الاتفاقية بشكل نافٍ للجهالة وأعفي الفريق الأول من أية مسؤولية ناتجة عن عدم فهمي لأي بند من بنودها"، وإدخال الاسم الكامل للموقّع.
 
 وتُعتبر هذه الإجراءات بمثابة توقيع إلكتروني ملزم وفقاً للقوانين المرعية الإجراء.`;
 
-export const CLIENT_AGREEMENT_EN_SUMMARY = `By accepting this agreement, the Client (Party Two) acknowledges that Diligent Financial Services s.a.l. ("DFS") will introduce the Client to GIV TRADE (the "Company") and arrange operations on financial instruments through that Company. DFS is licensed by the Capital Markets Authority (CMA, License #33) under categories "Advice" and "Arranging Operations". DFS does not personally hold the Client's account, does not execute trades, and does not receive funds — those are handled directly between the Client and the Company. DFS receives a commission of USD $7 per standard contract / lot executed through the Company. The Client accepts the inherent risks of trading in financial markets, including the potential total loss of capital, and acknowledges that DFS's role is limited to introduction and arranging. The Client must safeguard their own account credentials, notify DFS of any material changes, and may terminate or be terminated from this agreement with 30 business days' written notice.`;
+// ─── Structured paragraph arrays (for bold rendering in UI + PDF) ──────────
+// Mirrors the prose above, but with `bold: true` on the paragraphs the UAT
+// requires to be emphasised. The plain string constants are kept for back-
+// compat and for any consumer that just needs the full text.
+
+export const CLIENT_DECLARATION_EN_PARAGRAPHS: LegalParagraph[] = [
+  { text: "I, the undersigned, hereby declare that all information and documents provided in this Know Your Customer (KYC) form are true, complete, and accurate to the best of my knowledge. I understand that providing false or misleading information may result in the termination of my engagement or relationship with Diligent Financial Services (“DFS”)." },
+  { text: "I expressly acknowledge and agree to the following:", bold: true },
+  { text: "I authorize Diligent Financial Services (“DFS”) to verify and validate the information and documentation provided, and to collect, process, store, and share my personal data in accordance with applicable data protection laws, solely for regulatory, compliance, and risk management purposes." },
+  { text: "I confirm that I have carefully read, understood, and accepted the Account Opening Terms and Conditions, the Risk Warning documents, and all other related regulatory disclosures—whether provided in physical form or made available on the official DFS website." },
+  { text: "I undertake to comply fully with all applicable laws and regulations issued by the Capital Markets Authority (CMA) and other competent regulatory authorities in Lebanon, as well as all applicable international laws and standards, including those relating to anti-money laundering (AML) and counter-financing of terrorism (CFT)." },
+  { text: "I confirm that I am not subject to any international sanctions, asset freeze, or restrictive measures issued by OFAC, the European Union (EU), the United Nations (UN), or any other competent authority." },
+  { text: "I undertake to promptly inform Diligent Financial Services (DFS) of any material change to the information provided in this KYC form, including but not limited to changes in my financial situation, employment status, residency, or regulatory status.", bold: true },
+  { text: "I acknowledge that DFS provides advisory and arranging services only, and that I fully understand the nature of the advisory and arranging services offered by DFS, including the inherent risks involved—such as the potential total loss of capital—and I accept full responsibility for all investment decisions made independently by me, based on the advice or arrangements facilitated by DFS." },
+  { text: "I confirm that I am at least eighteen (18) years old and legally capable of entering into this agreement, and that I fully understand and accept the risks inherent in financial market activities." },
+  { text: "This declaration is made voluntarily, with full understanding of its content, legal implications, and the risks and consequences arising from the nature of financial market activities and the advisory and arranging services provided.", bold: true },
+];
+
+export const CLIENT_DECLARATION_AR_PARAGRAPHS: LegalParagraph[] = [
+  { text: "أنا الموقّع أدناه، أقرّ وأصرّح بأن جميع المعلومات والمستندات المقدّمة مني ضمن نموذج «اعرف عميلك» (KYC) صحيحة وكاملة ودقيقة وفقاً لعلمي واعتقادي. وأدرك أن تقديم أي معلومات غير صحيحة أو مضللة قد يؤدي إلى إنهاء تعاملي أو علاقتي مع شركة ديليجانت فينانشل سيرفيسيز ش.م.ل. («DFS»)." },
+  { text: "وأقرّ وأوافق صراحةً على ما يلي:", bold: true },
+  { text: "أفوّض شركة ديليجانت فينانشل سيرفيسيز ش.م.ل («DFS») بالتحقق من صحة المعلومات والمستندات المقدّمة، كما أفوّضها بجمع ومعالجة وحفظ ومشاركة بياناتي الشخصية وفقاً للقوانين والأنظمة المرعية الإجراء المتعلقة بحماية البيانات، وذلك حصراً لأغراض الامتثال التنظيمي وإدارة المخاطر." },
+  { text: "كما أؤكد أنني قد قرأت بعناية وفهمت ووافقت على شروط وأحكام فتح الحساب، وبيانات تحذير المخاطر، وكافة الإفصاحات التنظيمية ذات الصلة، سواء تم تزويدي بها خطياً أو تم إتاحتها عبر الموقع الرسمي لشركة «DFS»." },
+  { text: "وأتعهد بالالتزام الكامل بجميع القوانين والأنظمة المرعية الإجراء الصادرة عن هيئة الأسواق المالية في لبنان (CMA) والجهات الرقابية المختصة الأخرى في لبنان، وكذلك بجميع القوانين والمعايير الدولية ذات الصلة، ولا سيما تلك المتعلقة بمكافحة تبييض الأموال وتمويل الإرهاب." },
+  { text: "كما أؤكد أنني لست خاضعاً لأي عقوبات دولية أو تجميد للأصول أو تدابير تقييدية صادرة عن مكتب مراقبة الأصول الأجنبية (OFAC) أو الاتحاد الأوروبي (EU) أو الأمم المتحدة (UN) أو أي جهة مختصة أخرى." },
+  { text: "وأتعهد بإبلاغ شركة ديليجانت فينانشل سيرفيسيز («DFS») فوراً بأي تغيير جوهري يطرأ على المعلومات المقدّمة في نموذج «اعرف عميلك» هذا، بما في ذلك، على سبيل المثال لا الحصر، أي تغييرات تتعلق بوضعي المالي أو المهني أو محل إقامتي أو وضعي التنظيمي.", bold: true },
+  { text: "كما أقرّ بأن شركة «DFS» تقتصر خدماتها على تقديم المشورة وترتيب العمليات فقط، وأنني أفهم تماماً طبيعة هذه الخدمات والمخاطر الملازمة للتعامل في الأسواق المالية، بما في ذلك احتمال خسارة كامل رأس المال المستثمر، وأتحمل كامل المسؤولية عن أي قرارات استثمارية أتخذها بصورة مستقلة استناداً إلى المشورة أو الترتيبات التي تسهّلها «DFS»." },
+  { text: "كما أؤكد أنني قد أتممت الثامنة عشرة (18) من عمري، وأنني أتمتع بالأهلية القانونية اللازمة لإبرام هذه الاتفاقية، وأنني أفهم وأقبل المخاطر الملازمة للأنشطة في الأسواق المالية." },
+  { text: "وقد صدر هذا الإقرار بإرادتي الحرة وعن بيّنة من أمري، بعد الاطلاع الكامل على مضمونه وآثاره القانونية والمخاطر والنتائج المترتبة على طبيعة العمل في الأسواق المالية والخدمات الاستشارية وخدمات ترتيب العمليات المقدّمة.", bold: true },
+];
+
+// English equivalent of the agreement is intentionally not exported anymore;
+// the UAT review requested removing the English summary from the agreement
+// step until an official translation is provided.

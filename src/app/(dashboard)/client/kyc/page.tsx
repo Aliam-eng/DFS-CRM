@@ -32,8 +32,6 @@ import {
   Tr,
   Th,
   Td,
-  PinInput,
-  PinInputField,
   useColorModeValue,
   useToast,
 } from "@chakra-ui/react";
@@ -69,19 +67,17 @@ import {
   INVESTMENT_OBJECTIVE_OPTIONS,
   RISK_TOLERANCE_OPTIONS,
   INVESTMENT_INSTRUMENT_OPTIONS,
-  PEP_STATUS_OPTIONS,
 } from "@/lib/constants";
 import { FormStepper } from "@/components/shared/form-stepper";
 import { FileUploadZone } from "@/components/shared/file-upload-zone";
 import { ReviewSection } from "@/components/shared/review-section";
 import { KycFormSkeleton } from "@/components/shared/loading-skeletons";
 import {
-  CLIENT_DECLARATION_EN,
-  CLIENT_DECLARATION_AR,
+  CLIENT_DECLARATION_EN_PARAGRAPHS,
+  CLIENT_DECLARATION_AR_PARAGRAPHS,
   REGULATORY_RESERVATION_CLAUSE_EN,
   REGULATORY_RESERVATION_CLAUSE_AR,
   CLIENT_AGREEMENT_AR,
-  CLIENT_AGREEMENT_EN_SUMMARY,
 } from "@/lib/kyc-legal-texts";
 import type {
   InvestmentExperienceData,
@@ -222,6 +218,9 @@ export default function KycPage() {
         requireString("gender", "Gender is required");
         requireString("nationality", "Nationality is required");
         requireString("maritalStatus", "Marital status is required");
+        if (form.maritalStatus === "MARRIED") {
+          requireString("spouseFullName", "Spouse's full name is required");
+        }
         // Email/phone in KYC must match registration
         if (form.emailAddress && registeredEmail && (form.emailAddress as string).toLowerCase() !== registeredEmail.toLowerCase()) {
           errs["emailAddress"] = "Email must match the email used at registration";
@@ -268,10 +267,6 @@ export default function KycPage() {
         {
           const wealth = (form.sourceOfWealth as string[]) || [];
           if (wealth.length === 0) errs["sourceOfWealth"] = "At least one source of wealth is required";
-        }
-        // US Person hard block
-        if (form.isUsPerson) {
-          errs["isUsPerson"] = "U.S. Persons / non-Lebanon tax residents cannot proceed with this application.";
         }
         break;
       case 5: // Beneficial Owner — must explicitly answer Yes/No
@@ -342,9 +337,19 @@ export default function KycPage() {
         if (form.hasInsideInformation) requireString("insideInformationDetails", "Please explain");
         break;
       case 9: // PEP
-        requireString("pepStatus", "PEP status is required");
-        if (form.pepStatus === "IS_PEP" || form.pepStatus === "PEP_FAMILY_ASSOCIATE") {
-          requireString("pepDetails", "Please explain your PEP status");
+        {
+          const notPep = form.pepStatus === "NOT_PEP";
+          const isSelf = !!form.pepIsSelf;
+          const isFamily = !!form.pepIsFamily;
+          if (!notPep && !isSelf && !isFamily) {
+            errs["pepStatus"] = "Please select a PEP option";
+          }
+          if (notPep && (isSelf || isFamily)) {
+            errs["pepStatus"] = "Option 1 cannot be combined with Option 2 or 3";
+          }
+          if (isSelf || isFamily) {
+            requireString("pepDetails", "Please explain your PEP status");
+          }
         }
         break;
       case 10: // Documents
@@ -377,15 +382,15 @@ export default function KycPage() {
         if (!form.regulatoryClauseAccepted) errs["regulatoryClauseAccepted"] = "Regulatory Reservation Clause must be accepted";
         requireString("regulatoryClauseFullName", "Full name is required for the regulatory clause");
         break;
-      case 12: // Client Agreement (OTP signing)
+      case 12: // Client Agreement (name-only signature)
         if (!form.agreementAccepted) errs["agreementAccepted"] = "You must accept the client agreement";
         requireString("agreementFullName", "Full name is required to sign the agreement");
-        if (!form.agreementOtpVerifiedAt) errs["agreementOtp"] = "Please verify the OTP code to sign the agreement";
+        if (!form.agreementSignedAt) errs["agreementAccepted"] = "Please click 'Sign agreement' to record your signature";
         break;
       case 13: // Review & Submit — final guard, all earlier validations should pass
         if (!form.declarationAccepted) errs["declarationAccepted"] = "Declaration must be accepted";
         if (!form.regulatoryClauseAccepted) errs["regulatoryClauseAccepted"] = "Regulatory clause must be accepted";
-        if (!form.agreementAccepted || !form.agreementOtpVerifiedAt) errs["agreementAccepted"] = "Client agreement must be signed";
+        if (!form.agreementAccepted || !form.agreementSignedAt) errs["agreementAccepted"] = "Client agreement must be signed";
         break;
     }
 
@@ -701,9 +706,10 @@ function PersonalInfoStep({ form, updateField, errors }: StepProps) {
         <>
           <Divider />
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-            <FormControl>
-              <FormLabel>{"Spouse's Full Name / الاسم الكامل للزوج"}</FormLabel>
+            <FormControl isInvalid={!!errors.spouseFullName}>
+              <FormLabel>{"Spouse's Full Name / الاسم الكامل للزوج *"}</FormLabel>
               <Input value={(form.spouseFullName as string) || ""} onChange={(e) => updateField("spouseFullName", e.target.value)} />
+              <FormErrorMessage>{errors.spouseFullName}</FormErrorMessage>
             </FormControl>
             <FormControl>
               <FormLabel>{"Spouse's Profession / مهنة الزوج"}</FormLabel>
@@ -1113,31 +1119,6 @@ function FinancialStep({ form, updateField, errors }: StepProps) {
         </FormControl>
       )}
 
-      <Divider />
-      <SectionHeader icon={DollarSign} label="6. US Person / Tax Resident" />
-      <FormControl isInvalid={!!errors.isUsPerson}>
-        <FormLabel>Are you a U.S. Person or a tax resident in any jurisdiction other than Lebanon?</FormLabel>
-        <RadioGroup value={form.isUsPerson === true ? "yes" : "no"} onChange={(v) => updateField("isUsPerson", v === "yes")}>
-          <Stack direction="row" spacing={4}>
-            <Radio value="yes" size="sm">Yes / نعم</Radio>
-            <Radio value="no" size="sm">No / لا</Radio>
-          </Stack>
-        </RadioGroup>
-        <FormErrorMessage>{errors.isUsPerson}</FormErrorMessage>
-      </FormControl>
-      {form.isUsPerson === true && (
-        <Alert status="error" borderRadius="md">
-          <AlertIcon />
-          <Box>
-            <Text fontSize="sm" fontWeight="bold">
-              U.S. Persons cannot proceed with this application.
-            </Text>
-            <Text fontSize="sm" mt={1}>
-              The correspondent institution does not provide services to U.S. persons or tax residents in jurisdictions other than Lebanon. The client relationship cannot be established. Please change this answer to &quot;No&quot; if it does not apply, or contact our support team.
-            </Text>
-          </Box>
-        </Alert>
-      )}
     </>
   );
 }
@@ -1460,20 +1441,79 @@ function ComplianceStep({ form, updateField, errors }: StepProps) {
    ═══════════════════════════════════════════ */
 
 function PepStep({ form, updateField, errors }: StepProps) {
+  const isNotPep = form.pepStatus === "NOT_PEP";
+  const isSelfPep = !!form.pepIsSelf;
+  const isFamilyPep = !!form.pepIsFamily;
+
+  const setNotPep = (checked: boolean) => {
+    if (checked) {
+      updateField("pepStatus", "NOT_PEP");
+      updateField("pepIsSelf", false);
+      updateField("pepIsFamily", false);
+      updateField("pepDetails", "");
+    } else {
+      updateField("pepStatus", null);
+    }
+  };
+
+  const setSelfPep = (checked: boolean) => {
+    updateField("pepIsSelf", checked);
+    if (checked) {
+      // Selecting Option 2 clears the NOT_PEP selection
+      if (form.pepStatus === "NOT_PEP") updateField("pepStatus", null);
+      if (!form.pepStatus || form.pepStatus === "NOT_PEP") updateField("pepStatus", "IS_PEP");
+    } else if (!isFamilyPep) {
+      updateField("pepStatus", null);
+    }
+  };
+
+  const setFamilyPep = (checked: boolean) => {
+    updateField("pepIsFamily", checked);
+    if (checked) {
+      if (form.pepStatus === "NOT_PEP") updateField("pepStatus", null);
+      if (!form.pepStatus || form.pepStatus === "NOT_PEP") updateField("pepStatus", "PEP_FAMILY_ASSOCIATE");
+    } else if (!isSelfPep) {
+      updateField("pepStatus", null);
+    }
+  };
+
+  const showExplain = isSelfPep || isFamilyPep;
+
   return (
     <>
       <SectionHeader icon={Shield} label="Politically Exposed Person (PEP) / شخص مكشوف سياسياً" />
+      <Text fontSize="xs" color="gray.500">
+        Option 1 is exclusive. You may select Option 2 and/or Option 3 together.
+      </Text>
 
       <FormControl isInvalid={!!errors.pepStatus}>
-        <RadioGroup value={(form.pepStatus as string) || ""} onChange={(v) => updateField("pepStatus", v)}>
-          <Stack spacing={3}>
-            {PEP_STATUS_OPTIONS.map((o) => <Radio key={o.value} value={o.value} size="sm">{o.label}</Radio>)}
-          </Stack>
-        </RadioGroup>
+        <VStack spacing={3} align="stretch">
+          <Checkbox
+            isChecked={isNotPep}
+            isDisabled={isSelfPep || isFamilyPep}
+            onChange={(e) => setNotPep(e.target.checked)}
+          >
+            <Text fontSize="sm">I declare that I am NOT a Politically Exposed Person / أُصرّح بأنني لستُ شخصاً مكشوفاً سياسياً</Text>
+          </Checkbox>
+          <Checkbox
+            isChecked={isSelfPep}
+            isDisabled={isNotPep}
+            onChange={(e) => setSelfPep(e.target.checked)}
+          >
+            <Text fontSize="sm">I declare that I am a Politically Exposed Person / أُصرّح بأنني شخص مكشوف سياسياً</Text>
+          </Checkbox>
+          <Checkbox
+            isChecked={isFamilyPep}
+            isDisabled={isNotPep}
+            onChange={(e) => setFamilyPep(e.target.checked)}
+          >
+            <Text fontSize="sm">I confirm that I am a family member or close associate of a Politically Exposed Person / أؤكّد بأنني أحد أفراد عائلة أو معاون مقرّب لشخص مكشوف سياسياً</Text>
+          </Checkbox>
+        </VStack>
         <FormErrorMessage>{errors.pepStatus}</FormErrorMessage>
       </FormControl>
 
-      {(form.pepStatus === "IS_PEP" || form.pepStatus === "PEP_FAMILY_ASSOCIATE") && (
+      {showExplain && (
         <FormControl isInvalid={!!errors.pepDetails}>
           <FormLabel>Please explain *</FormLabel>
           <Textarea value={(form.pepDetails as string) || ""} onChange={(e) => updateField("pepDetails", e.target.value)} />
@@ -1674,15 +1714,26 @@ function DeclarationStep({ form, updateField, errors }: StepProps) {
     <VStack spacing={4} align="stretch">
       <Box p={5} borderWidth="1px" borderRadius="lg" fontSize="sm">
         <Heading size="sm" mb={3} color="brand.600">
-          Client Declaration &amp; Undertaking / إقرار وتعهد العميل
+          Client Declaration &amp; Undertaking
         </Heading>
-        <Text whiteSpace="pre-wrap" fontSize="xs" color="gray.700" lineHeight="tall" mb={4}>
-          {CLIENT_DECLARATION_EN}
-        </Text>
+        <VStack spacing={2} align="stretch" mb={4}>
+          {CLIENT_DECLARATION_EN_PARAGRAPHS.map((p, i) => (
+            <Text key={i} fontSize="xs" color="gray.700" lineHeight="tall" fontWeight={p.bold ? "bold" : "normal"}>
+              {p.text}
+            </Text>
+          ))}
+        </VStack>
         <Divider my={3} />
-        <Text whiteSpace="pre-wrap" fontSize="xs" color="gray.600" lineHeight="tall" dir="rtl">
-          {CLIENT_DECLARATION_AR}
-        </Text>
+        <Heading size="sm" mb={3} color="brand.600" textAlign="right" dir="rtl">
+          إقرار وتعهد العميل
+        </Heading>
+        <VStack spacing={2} align="stretch" dir="rtl">
+          {CLIENT_DECLARATION_AR_PARAGRAPHS.map((p, i) => (
+            <Text key={i} fontSize="xs" color="gray.600" lineHeight="tall" fontWeight={p.bold ? "bold" : "normal"}>
+              {p.text}
+            </Text>
+          ))}
+        </VStack>
 
         <VStack spacing={3} align="stretch" mt={4}>
           <FormControl isInvalid={!!errors.declarationAccepted}>
@@ -1749,78 +1800,108 @@ function DeclarationStep({ form, updateField, errors }: StepProps) {
 }
 
 /* ═══════════════════════════════════════════
-   STEP 12: CLIENT AGREEMENT (OTP signature)
+   STEP 12: CLIENT AGREEMENT (name-only signature)
    ═══════════════════════════════════════════ */
 
 interface ClientAgreementStepProps extends StepProps {
   kycId: string;
 }
 
-function ClientAgreementStep({ form, updateField, errors, kycId }: ClientAgreementStepProps) {
-  const [otp, setOtp] = useState("");
-  const [sending, setSending] = useState(false);
-  const [verifying, setVerifying] = useState(false);
-  const [otpSent, setOtpSent] = useState(false);
-  const [feedback, setFeedback] = useState<{ type: "success" | "error"; msg: string } | null>(null);
-  const toast = useToast();
+// Available trading partners and commission tiers — kept as arrays even though
+// only one option each is offered today, so the UAT spec ("dropdown menu, even
+// if there is one selection for the time being") is satisfied without code
+// changes when more options are added later.
+const TRADING_COMPANY_OPTIONS = [
+  { value: "GIVTRADE", label: "GIVTrade" },
+];
 
-  const isSigned = !!form.agreementOtpVerifiedAt;
+const COMMISSION_OPTIONS = [
+  { value: "7_USD", label: "USD $7 per standard contract / one lot" },
+];
 
-  const sendCode = async () => {
-    setSending(true);
-    setFeedback(null);
-    const res = await fetch(`/api/kyc/${kycId}/sign-agreement`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "send" }),
-    });
-    setSending(false);
-    if (!res.ok) {
-      const d = await res.json();
-      setFeedback({ type: "error", msg: d.error || "Failed to send code" });
-      return;
-    }
-    setOtpSent(true);
-    toast({ title: "Verification code sent to your email", status: "success", duration: 3000 });
-  };
+function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepProps) {
+  const isSigned = !!form.agreementSignedAt;
 
-  const verifyCode = async () => {
-    if (!form.agreementFullName) {
-      setFeedback({ type: "error", msg: "Please enter your full name first" });
-      return;
-    }
-    if (otp.length !== 6) {
-      setFeedback({ type: "error", msg: "Enter the 6-digit code" });
-      return;
-    }
-    setVerifying(true);
-    setFeedback(null);
-    const res = await fetch(`/api/kyc/${kycId}/sign-agreement`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ action: "verify", code: otp, fullName: form.agreementFullName }),
-    });
-    setVerifying(false);
-    const data = await res.json();
-    if (!res.ok) {
-      setFeedback({ type: "error", msg: data.error || "Verification failed" });
-      return;
-    }
-    updateField("agreementOtpVerifiedAt", data.agreementOtpVerifiedAt);
-    updateField("agreementSignedAt", data.agreementSignedAt);
-    setFeedback({ type: "success", msg: "Agreement signed successfully" });
-    toast({ title: "Agreement signed", status: "success", duration: 3000 });
+  // Pull the client's identifying details from the KYC form so they can be
+  // displayed inline inside the agreement (مستند التعريف).
+  const idType: string =
+    (form.idDocumentType as string) ||
+    (form.passportNumber ? "PASSPORT" : form.idNumber ? "NATIONAL_ID" : "");
+  const idLabel = idType === "PASSPORT" ? "جواز السفر" : idType === "NATIONAL_ID" ? "الهوية الوطنية" : "—";
+  const idNumberValue = (form.passportNumber as string) || (form.idNumber as string) || "—";
+
+  const fullNameValue = [form.firstName, form.middleName, form.lastName].filter(Boolean).join(" ") || "—";
+  const nationalityValue = (form.nationality as string) || "—";
+  const placeOfBirthValue = (form.placeOfBirth as string) || "—";
+  const dobValue = form.dateOfBirth ? new Date(form.dateOfBirth as string).toLocaleDateString() : "—";
+  const addressValue =
+    [form.primaryStreet, form.primaryArea, form.primaryCity, form.primaryCountry]
+      .filter(Boolean)
+      .join("، ") || "—";
+
+  // Default selections for the new dropdowns
+  if (!form.tradingCompany) updateField("tradingCompany", TRADING_COMPANY_OPTIONS[0].value);
+  if (!form.tradingCommission) updateField("tradingCommission", COMMISSION_OPTIONS[0].value);
+
+  // Default declarationDate / agreement date should reflect when the client
+  // arrives at this step.
+  const todayLocale = new Date().toLocaleDateString();
+
+  const handleSign = () => {
+    const now = new Date().toISOString();
+    updateField("agreementSignedAt", now);
   };
 
   return (
     <VStack spacing={4} align="stretch">
       <Box p={5} borderWidth="1px" borderRadius="lg" fontSize="sm" maxH="500px" overflowY="auto">
-        <Heading size="sm" mb={3} color="brand.600">
-          Client Agreement / اتفاقية العميل
+        <Heading size="sm" mb={3} color="brand.600" textAlign="right" dir="rtl">
+          اتفاقية العميل
         </Heading>
-        <Text fontSize="xs" color="gray.700" lineHeight="tall" mb={4}>
-          {CLIENT_AGREEMENT_EN_SUMMARY}
-        </Text>
+
+        <Box dir="rtl" mb={3} p={3} borderWidth="1px" borderColor="gray.200" borderRadius="md" bg="gray.50">
+          <Text fontSize="xs" color="gray.700" lineHeight="tall">
+            <Text as="span" fontWeight="bold">الاسم الكامل:</Text> {fullNameValue}
+            <br />
+            <Text as="span" fontWeight="bold">الجنسية:</Text> {nationalityValue}
+            <br />
+            <Text as="span" fontWeight="bold">مستند التعريف:</Text> {idLabel} — {idNumberValue}
+            <br />
+            <Text as="span" fontWeight="bold">محل وتاريخ الولادة:</Text> {placeOfBirthValue} — {dobValue}
+            <br />
+            <Text as="span" fontWeight="bold">العنوان:</Text> {addressValue}
+            <br />
+            <Text as="span" fontWeight="bold">التاريخ:</Text> {todayLocale}
+          </Text>
+        </Box>
+
+        <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mb={4} dir="rtl">
+          <FormControl>
+            <FormLabel fontSize="xs">اختار الفريق الثاني فتح حساب لدى شركة *</FormLabel>
+            <Select
+              value={(form.tradingCompany as string) || TRADING_COMPANY_OPTIONS[0].value}
+              isDisabled={isSigned}
+              onChange={(e) => updateField("tradingCompany", e.target.value)}
+            >
+              {TRADING_COMPANY_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
+          </FormControl>
+          <FormControl>
+            <FormLabel fontSize="xs">قيمة العمولة عن كل عملية *</FormLabel>
+            <Select
+              value={(form.tradingCommission as string) || COMMISSION_OPTIONS[0].value}
+              isDisabled={isSigned}
+              onChange={(e) => updateField("tradingCommission", e.target.value)}
+            >
+              {COMMISSION_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>{o.label}</option>
+              ))}
+            </Select>
+          </FormControl>
+        </SimpleGrid>
+
         <Divider my={3} />
         <Text whiteSpace="pre-wrap" fontSize="xs" color="gray.600" lineHeight="tall" dir="rtl">
           {CLIENT_AGREEMENT_AR}
@@ -1828,8 +1909,8 @@ function ClientAgreementStep({ form, updateField, errors, kycId }: ClientAgreeme
       </Box>
 
       <Box p={5} borderWidth="1px" borderColor={isSigned ? "green.200" : "blue.200"} borderRadius="lg" bg={isSigned ? "green.50" : "blue.50"}>
-        <Heading size="sm" mb={3}>
-          Electronic Signature / التوقيع الإلكتروني
+        <Heading size="sm" mb={3} textAlign="right" dir="rtl">
+          التوقيع الإلكتروني
         </Heading>
 
         <VStack spacing={4} align="stretch">
@@ -1840,15 +1921,15 @@ function ClientAgreementStep({ form, updateField, errors, kycId }: ClientAgreeme
               onChange={(e) => updateField("agreementAccepted", e.target.checked)}
               colorScheme="brand"
             >
-              <Text fontSize="sm" fontWeight="medium">
-                I have read and fully understood this agreement and release the First Party from any liability arising from my failure to understand any of its terms.
+              <Text fontSize="sm" fontWeight="medium" dir="rtl">
+                لقد قرأت وفهمت كامل هذه الاتفاقية بشكل نافٍ للجهالة وأعفي الفريق الأول من أية مسؤولية ناتجة عن عدم فهمي لأي بند من بنودها.
               </Text>
             </Checkbox>
             <FormErrorMessage>{errors.agreementAccepted}</FormErrorMessage>
           </FormControl>
 
           <FormControl isInvalid={!!errors.agreementFullName}>
-            <FormLabel>Full Name (as signature) *</FormLabel>
+            <FormLabel>Full Name (as signature) / الاسم الكامل (كتوقيع) *</FormLabel>
             <Input
               value={(form.agreementFullName as string) || ""}
               isDisabled={isSigned}
@@ -1858,45 +1939,18 @@ function ClientAgreementStep({ form, updateField, errors, kycId }: ClientAgreeme
             <FormErrorMessage>{errors.agreementFullName}</FormErrorMessage>
           </FormControl>
 
+          <Text fontSize="xs" color="gray.600">
+            <strong>Date / التاريخ:</strong> {form.agreementSignedAt ? new Date(form.agreementSignedAt as string).toLocaleString() : todayLocale}
+          </Text>
+
           {!isSigned && (
-            <>
-              {!otpSent ? (
-                <Button
-                  colorScheme="brand"
-                  isLoading={sending}
-                  isDisabled={!form.agreementAccepted || !form.agreementFullName}
-                  onClick={sendCode}
-                  leftIcon={<Icon as={MessageSquare} boxSize={4} />}
-                >
-                  Send verification code to my email
-                </Button>
-              ) : (
-                <>
-                  <FormControl isInvalid={!!errors.agreementOtp}>
-                    <FormLabel>Enter the 6-digit code from your email *</FormLabel>
-                    <HStack>
-                      <PinInput value={otp} onChange={setOtp} otp size="lg">
-                        <PinInputField />
-                        <PinInputField />
-                        <PinInputField />
-                        <PinInputField />
-                        <PinInputField />
-                        <PinInputField />
-                      </PinInput>
-                    </HStack>
-                    <FormErrorMessage>{errors.agreementOtp}</FormErrorMessage>
-                  </FormControl>
-                  <HStack>
-                    <Button colorScheme="brand" onClick={verifyCode} isLoading={verifying} isDisabled={otp.length !== 6}>
-                      Sign agreement
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={sendCode} isLoading={sending}>
-                      Resend code
-                    </Button>
-                  </HStack>
-                </>
-              )}
-            </>
+            <Button
+              colorScheme="brand"
+              isDisabled={!form.agreementAccepted || !form.agreementFullName}
+              onClick={handleSign}
+            >
+              Sign agreement / توقيع الاتفاقية
+            </Button>
           )}
 
           {isSigned && (
@@ -1905,16 +1959,9 @@ function ClientAgreementStep({ form, updateField, errors, kycId }: ClientAgreeme
               <Box>
                 <Text fontSize="sm" fontWeight="bold">Agreement signed</Text>
                 <Text fontSize="xs">
-                  Signed by {form.agreementFullName as string} on {form.agreementSignedAt ? new Date(form.agreementSignedAt as string).toLocaleString() : "now"}.
+                  Signed by {form.agreementFullName as string} on {new Date(form.agreementSignedAt as string).toLocaleString()}.
                 </Text>
               </Box>
-            </Alert>
-          )}
-
-          {feedback && !isSigned && (
-            <Alert status={feedback.type} borderRadius="md">
-              <AlertIcon />
-              <Text fontSize="sm">{feedback.msg}</Text>
             </Alert>
           )}
         </VStack>

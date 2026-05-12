@@ -6,6 +6,9 @@ export const registerSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   phone: z.string().min(6, "Phone number is required"),
+  isUsPerson: z.boolean().refine((v) => v === false, {
+    message: "U.S. Persons and tax residents in jurisdictions other than Lebanon cannot register for this service.",
+  }),
 });
 
 export const loginSchema = z.object({

@@ -96,13 +96,14 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       "isAssociatedWithListed", "associatedListedDetails",
       "hasInsideInformation", "insideInformationDetails",
       // Part J
-      "pepStatus", "pepDetails",
+      "pepStatus", "pepIsSelf", "pepIsFamily", "pepDetails",
       // Declaration
       "declarationAccepted", "declarationFullName", "declarationDate",
       // Regulatory Reservation Clause
       "regulatoryClauseAccepted", "regulatoryClauseFullName",
       // Client Agreement (signature fields)
-      "agreementAccepted", "agreementFullName",
+      "agreementAccepted", "agreementFullName", "agreementSignedAt",
+      "tradingCompany", "tradingCommission",
       // Tracking
       "currentStep",
     ]);
@@ -113,7 +114,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     }
 
     // Handle date conversions
-    const dateFields = ["dateOfBirth", "idIssueDate", "passportExpiryDate", "directorAppointmentDate", "declarationDate"];
+    const dateFields = ["dateOfBirth", "idIssueDate", "passportExpiryDate", "directorAppointmentDate", "declarationDate", "agreementSignedAt"];
     for (const field of dateFields) {
       if (body[field] && typeof body[field] === "string") {
         body[field] = new Date(body[field] as string);

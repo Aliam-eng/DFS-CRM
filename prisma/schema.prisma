@@ -327,7 +327,13 @@ model KycSubmission {
   // =============================================
   // PART J: PEP DECLARATION
   // =============================================
+  // pepStatus is kept for backwards compatibility, but the form now uses the
+  // three flags below to support the combinations defined by UAT:
+  //   Option 1 (NOT PEP) is exclusive; Option 2 (Is PEP) and Option 3
+  //   (Family / Close associate of a PEP) may be selected together.
   pepStatus  PepStatus?
+  pepIsSelf   Boolean? @default(false)
+  pepIsFamily Boolean? @default(false)
   pepDetails String?
 
   // =============================================
@@ -341,12 +347,16 @@ model KycSubmission {
   regulatoryClauseAccepted Boolean?  @default(false)
   regulatoryClauseFullName String?
 
-  // Client Agreement (electronic signature via OTP)
+  // Client Agreement (electronic signature)
   agreementAccepted        Boolean?  @default(false)
   agreementFullName        String?
   agreementSignedAt        DateTime?
   agreementOtpVerifiedAt   DateTime?
   agreementSignatureIp     String?
+
+  // Trading partner + commission tier chosen at agreement time
+  tradingCompany    String?
+  tradingCommission String?
 
   // =============================================
   // FORM TRACKING

@@ -45,6 +45,9 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     if (!kyc.gender) errors.push("Gender is required");
     if (!kyc.nationality) errors.push("Nationality is required");
     if (!kyc.maritalStatus) errors.push("Marital status is required");
+    if (kyc.maritalStatus === "MARRIED" && !kyc.spouseFullName) {
+      errors.push("Spouse's full name is required");
+    }
 
     // Identity document number (passport or national ID)
     if (!kyc.passportNumber && !kyc.idNumber) errors.push("Passport number or ID number is required");
@@ -174,10 +177,20 @@ export async function POST(req: Request, { params }: { params: { id: string } })
       errors.push("Please explain your access to non-public/inside information");
     }
 
-    // Part J: PEP — if PEP-related, explanation required
-    if (!kyc.pepStatus) errors.push("PEP status is required");
-    if ((kyc.pepStatus === "IS_PEP" || kyc.pepStatus === "PEP_FAMILY_ASSOCIATE") && !kyc.pepDetails) {
-      errors.push("Please explain your PEP status");
+    // Part J: PEP — Option 1 exclusive; Option 2 and/or Option 3 may be combined.
+    {
+      const notPep = kyc.pepStatus === "NOT_PEP";
+      const isSelf = !!kyc.pepIsSelf;
+      const isFamily = !!kyc.pepIsFamily;
+      if (!notPep && !isSelf && !isFamily) {
+        errors.push("PEP status is required");
+      }
+      if (notPep && (isSelf || isFamily)) {
+        errors.push("Option 1 (NOT a PEP) cannot be combined with Option 2 or 3");
+      }
+      if ((isSelf || isFamily) && !kyc.pepDetails) {
+        errors.push("Please explain your PEP status");
+      }
     }
 
     // Declaration

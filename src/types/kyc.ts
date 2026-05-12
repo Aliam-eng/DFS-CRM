@@ -152,6 +152,8 @@ export interface KycDetail {
 
   // Part J: PEP Declaration
   pepStatus: string | null;
+  pepIsSelf: boolean | null;
+  pepIsFamily: boolean | null;
   pepDetails: string | null;
 
   // Declaration
@@ -163,12 +165,16 @@ export interface KycDetail {
   regulatoryClauseAccepted: boolean | null;
   regulatoryClauseFullName: string | null;
 
-  // Client Agreement (electronic signature via OTP)
+  // Client Agreement (electronic signature)
   agreementAccepted: boolean | null;
   agreementFullName: string | null;
   agreementSignedAt: string | null;
   agreementOtpVerifiedAt: string | null;
   agreementSignatureIp: string | null;
+
+  // Trading partner + commission tier chosen at agreement time
+  tradingCompany: string | null;
+  tradingCommission: string | null;
 
   // Tracking
   currentStep: number | null;

@@ -1,9 +1,9 @@
 import jsPDF from "jspdf";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 import {
-  CLIENT_DECLARATION_EN,
+  CLIENT_DECLARATION_EN_PARAGRAPHS,
   REGULATORY_RESERVATION_CLAUSE_EN,
-  CLIENT_AGREEMENT_EN_SUMMARY,
+  type LegalParagraph,
 } from "@/lib/kyc-legal-texts";
 
 const PAGE_WIDTH = 210;
@@ -112,6 +112,27 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
         y += LINE_HEIGHT / 2;
       }
     }
+  }
+
+  function addStructuredParagraphs(paragraphs: LegalParagraph[]) {
+    doc.setFontSize(9);
+    doc.setTextColor("#000000");
+    for (let p = 0; p < paragraphs.length; p++) {
+      const para = paragraphs[p];
+      const text = para.text.replace(/\s*\n\s*/g, " ").trim();
+      if (!text) continue;
+      doc.setFont("helvetica", para.bold ? "bold" : "normal");
+      const lines = doc.splitTextToSize(text, CONTENT_WIDTH);
+      for (const line of lines) {
+        checkPage(LINE_HEIGHT);
+        doc.text(line, MARGIN, y);
+        y += LINE_HEIGHT;
+      }
+      if (p < paragraphs.length - 1) {
+        y += LINE_HEIGHT / 2;
+      }
+    }
+    doc.setFont("helvetica", "normal");
   }
 
   // ── Title ──
@@ -301,13 +322,19 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
 
   // ── Part J: PEP Declaration ──
   addHeader("Part J: PEP Declaration");
-  addFieldInline("PEP Status", fmt(kyc.pepStatus));
-  if (kyc.pepDetails) addFieldInline("PEP Details", kyc.pepDetails);
+  {
+    const opts: string[] = [];
+    if (kyc.pepStatus === "NOT_PEP") opts.push("NOT a Politically Exposed Person");
+    if (kyc.pepIsSelf) opts.push("Is a Politically Exposed Person");
+    if (kyc.pepIsFamily) opts.push("Family member or close associate of a PEP");
+    addFieldInline("PEP Declaration", opts.length ? opts.join(" + ") : fmt(kyc.pepStatus));
+    if (kyc.pepDetails) addFieldInline("PEP Details", kyc.pepDetails);
+  }
   addGap();
 
   // ── Client Declaration & Undertaking ──
   addHeader("Client Declaration & Undertaking");
-  addParagraph(CLIENT_DECLARATION_EN);
+  addStructuredParagraphs(CLIENT_DECLARATION_EN_PARAGRAPHS);
   addGap(4);
   addBoolField("Accepted", kyc.declarationAccepted);
   addFieldInline("Signed by", kyc.declarationFullName);
@@ -324,15 +351,13 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
 
   // ── Client Agreement ──
   addHeader("Client Agreement");
-  addParagraph(CLIENT_AGREEMENT_EN_SUMMARY);
-  addGap(2);
-  addParagraph("(Arabic agreement text was displayed and accepted in the application)");
+  addParagraph("(Arabic agreement text was displayed and accepted in the application. English translation pending.)");
   addGap(4);
+  addFieldInline("Trading partner", kyc.tradingCompany);
+  addFieldInline("Commission tier", kyc.tradingCommission);
   addBoolField("Accepted", kyc.agreementAccepted);
   addFieldInline("Signed by", kyc.agreementFullName);
-  addFieldInline("Signed at", fmtDateTime(kyc.agreementSignedAt));
-  addFieldInline("OTP verified at", fmtDateTime(kyc.agreementOtpVerifiedAt));
-  addFieldInline("Signature IP", kyc.agreementSignatureIp);
+  addFieldInline("Date", fmtDateTime(kyc.agreementSignedAt));
   addGap();
 
   // ── Review History ──
