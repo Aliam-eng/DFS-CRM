@@ -32,13 +32,13 @@ import {
   useColorModeValue,
   useToast,
 } from "@chakra-ui/react";
-import { Download } from "lucide-react";
+import { Download, FileSignature } from "lucide-react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
-import { generateKycPdf } from "@/lib/kyc-pdf";
+import { generateKycPdf, generateSignedDocsPdf } from "@/lib/kyc-pdf";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -130,6 +130,9 @@ export default function OperationsReviewDetailPage() {
         <Flex align="center" justify="space-between">
           <Heading size="lg">Operations Review</Heading>
           <HStack spacing={3}>
+            <Button size="sm" variant="outline" leftIcon={<Icon as={FileSignature} boxSize={4} />} onClick={() => generateSignedDocsPdf(kyc).save(`SignedDocs-${kyc.user.lastName}-${kyc.id.slice(-6)}.pdf`)}>
+              Print Signed Docs
+            </Button>
             <Button size="sm" variant="outline" leftIcon={<Icon as={Download} boxSize={4} />} onClick={() => generateKycPdf(kyc).save(`KYC-${kyc.id}.pdf`)}>
               Export PDF
             </Button>

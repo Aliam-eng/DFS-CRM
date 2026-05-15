@@ -646,7 +646,7 @@ function PersonalInfoStep({ form, updateField, errors }: StepProps) {
       </SimpleGrid>
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
         <FormControl isInvalid={!!errors.placeOfBirth}>
-          <FormLabel>Place and Date of Birth *</FormLabel>
+          <FormLabel>Place of Birth / مكان الولادة *</FormLabel>
           <Input value={(form.placeOfBirth as string) || ""} onChange={(e) => updateField("placeOfBirth", e.target.value)} placeholder="Place of birth" />
           <FormErrorMessage>{errors.placeOfBirth}</FormErrorMessage>
         </FormControl>
