@@ -2,184 +2,128 @@ import jsPDF from "jspdf";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 import {
   CLIENT_DECLARATION_EN_PARAGRAPHS,
+  CLIENT_DECLARATION_AR_PARAGRAPHS,
   REGULATORY_RESERVATION_CLAUSE_EN,
+  REGULATORY_RESERVATION_CLAUSE_AR,
+  CLIENT_AGREEMENT_AR,
   type LegalParagraph,
 } from "@/lib/kyc-legal-texts";
 
-export function generateSignedDocsPdf(kyc: KycDetail): jsPDF {
-  const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
-  let y = MARGIN;
+export function printSignedDocs(kyc: KycDetail): void {
+  const win = window.open("", "_blank");
+  if (!win) { alert("Please allow pop-ups to print signed documents."); return; }
 
-  function checkPage(needed: number = 20) {
-    if (y + needed > PAGE_HEIGHT - MARGIN) {
-      doc.addPage();
-      y = MARGIN;
-    }
-  }
+  const esc = (s: string | null | undefined) =>
+    (s ?? "-").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  function addHeader(text: string) {
-    checkPage(20);
-    doc.setFontSize(13);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(GREEN);
-    doc.text(text, MARGIN, y);
-    y += 2;
-    doc.setDrawColor(GREEN);
-    doc.setLineWidth(0.5);
-    doc.line(MARGIN, y, MARGIN + CONTENT_WIDTH, y);
-    y += LINE_HEIGHT;
-    doc.setTextColor("#000000");
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(10);
-  }
+  const fmtD = (s: string | null | undefined) => s ? new Date(s).toLocaleDateString() : "-";
+  const fmtDT = (s: string | null | undefined) => s ? new Date(s).toLocaleString() : "-";
 
-  function addFieldInline(label: string, value: string | number | null | undefined) {
-    checkPage(LINE_HEIGHT);
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor("#333333");
-    doc.text(`${label}: `, MARGIN, y);
-    const labelWidth = doc.getTextWidth(`${label}: `);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor("#000000");
-    const val = value != null && value !== "" ? String(value) : "-";
-    const remaining = CONTENT_WIDTH - labelWidth;
-    const lines = doc.splitTextToSize(val, remaining > 30 ? remaining : CONTENT_WIDTH);
-    if (remaining > 30) {
-      doc.text(lines[0], MARGIN + labelWidth, y);
-      y += LINE_HEIGHT;
-      for (let i = 1; i < lines.length; i++) {
-        checkPage(LINE_HEIGHT);
-        doc.text(lines[i], MARGIN, y);
-        y += LINE_HEIGHT;
-      }
-    } else {
-      y += LINE_HEIGHT;
-      doc.text(lines, MARGIN, y);
-      y += lines.length * LINE_HEIGHT;
-    }
-  }
+  const structuredParas = (items: LegalParagraph[], rtl: boolean) =>
+    items.map(p => {
+      const cls = [rtl ? "ar" : "", p.bold ? "bold" : ""].filter(Boolean).join(" ");
+      return `<p${cls ? ` class="${cls}"` : ""}>${esc(p.text)}</p>`;
+    }).join("\n");
 
-  function addStructuredParagraphs(paragraphs: LegalParagraph[]) {
-    doc.setFontSize(9);
-    doc.setTextColor("#000000");
-    for (let p = 0; p < paragraphs.length; p++) {
-      const para = paragraphs[p];
-      const text = para.text.replace(/\s*\n\s*/g, " ").trim();
-      if (!text) continue;
-      doc.setFont("helvetica", para.bold ? "bold" : "normal");
-      const lines = doc.splitTextToSize(text, CONTENT_WIDTH);
-      for (const line of lines) {
-        checkPage(LINE_HEIGHT);
-        doc.text(line, MARGIN, y);
-        y += LINE_HEIGHT;
-      }
-      if (p < paragraphs.length - 1) y += LINE_HEIGHT / 2;
-    }
-    doc.setFont("helvetica", "normal");
-  }
+  const plainParas = (text: string) =>
+    text.split(/\n\n+/).map(block => {
+      const lines = block.trim().split("\n").map(l => esc(l)).filter(Boolean);
+      return `<p class="ar">${lines.join("<br>")}</p>`;
+    }).join("\n");
 
-  function addParagraph(text: string) {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor("#000000");
-    const paragraphs = text.split(/\n\s*\n/);
-    for (let p = 0; p < paragraphs.length; p++) {
-      const para = paragraphs[p].replace(/\s*\n\s*/g, " ").trim();
-      if (!para) continue;
-      const lines = doc.splitTextToSize(para, CONTENT_WIDTH);
-      for (const line of lines) {
-        checkPage(LINE_HEIGHT);
-        doc.text(line, MARGIN, y);
-        y += LINE_HEIGHT;
-      }
-      if (p < paragraphs.length - 1) y += LINE_HEIGHT / 2;
-    }
-  }
-
-  function addGap(size: number = SECTION_GAP) { y += size; }
-
-  function fmtLocal(s: string | null | undefined) { return s ? new Date(s).toLocaleDateString() : "-"; }
-  function fmtLocalDateTime(s: string | null | undefined) { return s ? new Date(s).toLocaleString() : "-"; }
-
-  // ── Title ──
-  doc.setFontSize(18);
-  doc.setFont("helvetica", "bold");
-  doc.setTextColor(GREEN);
-  doc.text("DFS - Signed Documents", MARGIN, y);
-  y += 8;
-  doc.setFontSize(9);
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor("#555555");
-  doc.text(`Client: ${kyc.user.firstName} ${kyc.user.lastName} | Email: ${kyc.user.email}`, MARGIN, y);
-  y += LINE_HEIGHT;
-  doc.text(`KYC ID: ${kyc.id} | Generated: ${new Date().toLocaleString()}`, MARGIN, y);
-  y += LINE_HEIGHT * 2;
-  doc.setTextColor("#000000");
-
-  // ── Section 1: Client Declaration ──
-  addHeader("1. Client Declaration & Undertaking / إقرار وتعهد العميل");
-  addStructuredParagraphs(CLIENT_DECLARATION_EN_PARAGRAPHS);
-  addGap(4);
-  addFieldInline("Accepted", kyc.declarationAccepted ? "Yes" : "No");
-  addFieldInline("Signed by (Full Name)", kyc.declarationFullName);
-  addFieldInline("Date", fmtLocal(kyc.declarationDate));
-  addGap();
-
-  // ── Section 2: Regulatory Reservation Clause ──
-  addHeader("2. Regulatory Reservation Clause");
-  addParagraph(REGULATORY_RESERVATION_CLAUSE_EN);
-  addGap(4);
-  addFieldInline("Accepted", kyc.regulatoryClauseAccepted ? "Yes" : "No");
-  addFieldInline("Signed by (Full Name)", kyc.regulatoryClauseFullName);
-  addGap();
-
-  // ── Section 3: Client Agreement ──
-  addHeader("3. Client Agreement");
-  // Identification block as shown in the form
-  addFieldInline("Full Name", kyc.agreementFullName || kyc.declarationFullName);
-  addFieldInline("Nationality", kyc.nationality);
+  const clientName = `${kyc.user.firstName} ${kyc.user.lastName}`;
   const idType = kyc.passportNumber ? "Passport" : "National ID";
-  const idNum = kyc.passportNumber || kyc.idNumber;
-  addFieldInline("ID Type & Number", `${idType}: ${idNum || "-"}`);
-  const birthInfo = [kyc.placeOfBirth, kyc.dateOfBirth ? new Date(kyc.dateOfBirth).toLocaleDateString() : null].filter(Boolean).join(", ");
-  addFieldInline("Place & Date of Birth", birthInfo || "-");
-  addFieldInline("Address", [kyc.primaryBuilding, kyc.primaryStreet, kyc.primaryArea, kyc.primaryCity, kyc.primaryCountry].filter(Boolean).join(", ") || "-");
-  addGap(4);
-  addFieldInline("Trading Partner (Second Party)", kyc.tradingCompany);
-  addFieldInline("Commission Tier", kyc.tradingCommission);
-  addGap(4);
-  addFieldInline("Agreement Accepted", kyc.agreementAccepted ? "Yes" : "No");
-  addFieldInline("Signed by (Full Name)", kyc.agreementFullName);
-  addFieldInline("Date & Time Signed", fmtLocalDateTime(kyc.agreementSignedAt));
-  addGap(4);
-  doc.setFont("helvetica", "italic");
-  doc.setFontSize(8);
-  doc.setTextColor("#666666");
-  checkPage(LINE_HEIGHT * 2);
-  const noteLine = doc.splitTextToSize(
-    "Note: The full Arabic agreement text (اتفاقية العميل) was presented to the client in the e-KYC portal and accepted electronically as recorded above.",
-    CONTENT_WIDTH
-  );
-  for (const line of noteLine) {
-    doc.text(line, MARGIN, y);
-    y += LINE_HEIGHT;
-  }
-  doc.setFont("helvetica", "normal");
-  doc.setTextColor("#000000");
+  const idNum = kyc.passportNumber || kyc.idNumber || "-";
+  const birthInfo = [kyc.placeOfBirth, kyc.dateOfBirth ? new Date(kyc.dateOfBirth).toLocaleDateString() : null].filter(Boolean).join(", ") || "-";
+  const address = [kyc.primaryBuilding, kyc.primaryStreet, kyc.primaryArea, kyc.primaryCity, kyc.primaryCountry].filter(Boolean).join(", ") || "-";
 
-  // ── Footer ──
-  const totalPages = doc.getNumberOfPages();
-  for (let i = 1; i <= totalPages; i++) {
-    doc.setPage(i);
-    doc.setFontSize(8);
-    doc.setTextColor("#999999");
-    doc.setFont("helvetica", "normal");
-    doc.text(`DFS - Signed Documents | Page ${i} of ${totalPages}`, MARGIN, PAGE_HEIGHT - 10);
-    doc.text(`Generated: ${new Date().toLocaleString()}`, PAGE_WIDTH - MARGIN, PAGE_HEIGHT - 10, { align: "right" });
-  }
+  const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Signed Documents – ${esc(clientName)}</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Arial,"Helvetica Neue",sans-serif;color:#111;padding:40px;max-width:820px;margin:0 auto;font-size:10.5pt;line-height:1.7}
+h1{color:#21d94f;font-size:20pt;margin-bottom:6px}
+.meta{color:#555;font-size:9pt;border-bottom:1px solid #e5e7eb;padding-bottom:12px;margin-bottom:28px}
+h2{color:#21d94f;font-size:12pt;border-bottom:2px solid #21d94f;padding-bottom:4px;margin:36px 0 16px}
+p{margin-bottom:8px}
+.bold{font-weight:bold}
+.lang-tag{font-size:8pt;color:#6b7280;font-style:italic;margin-bottom:6px;display:block}
+.ar{font-family:"Traditional Arabic","Arabic Typesetting","Scheherazade New","Arial Unicode MS",serif}
+.ar-block{direction:rtl;text-align:right;border-top:1px dashed #d1d5db;padding-top:14px;margin-top:14px}
+.sig-box{background:#f9fafb;border:1px solid #d1d5db;border-radius:6px;padding:14px 18px;margin-top:16px}
+.field{display:flex;gap:8px;margin-bottom:6px;font-size:10pt}
+.field-lbl{font-weight:bold;color:#555;min-width:240px;flex-shrink:0}
+.id-box{background:#f0fdf4;border:1px solid #86efac;border-radius:6px;padding:14px 18px;margin-bottom:16px}
+.id-box h3{font-size:10pt;margin-bottom:10px;color:#166534}
+hr.light{border:none;border-top:1px solid #e5e7eb;margin:10px 0}
+@media print{body{padding:20px;font-size:10pt}h2{page-break-before:avoid}}
+</style>
+</head>
+<body>
+<h1>DFS &mdash; Signed Documents</h1>
+<div class="meta">
+  Client: <strong>${esc(clientName)}</strong> &nbsp;|&nbsp;
+  Email: ${esc(kyc.user.email)} &nbsp;|&nbsp;
+  KYC ID: ${esc(kyc.id)}<br>
+  Generated: ${new Date().toLocaleString()}
+</div>
 
-  return doc;
+<h2>1. Client Declaration &amp; Undertaking / إقرار وتعهد العميل</h2>
+<span class="lang-tag">English</span>
+${structuredParas(CLIENT_DECLARATION_EN_PARAGRAPHS, false)}
+<div class="ar-block">
+<span class="lang-tag">العربية</span>
+${structuredParas(CLIENT_DECLARATION_AR_PARAGRAPHS, true)}
+</div>
+<div class="sig-box">
+  <div class="field"><span class="field-lbl">Accepted / قُبلت:</span><span>${kyc.declarationAccepted ? "Yes ✓ / نعم" : "No"}</span></div>
+  <div class="field"><span class="field-lbl">Signed by / الاسم الكامل:</span><span>${esc(kyc.declarationFullName)}</span></div>
+  <div class="field"><span class="field-lbl">Date / التاريخ:</span><span>${fmtD(kyc.declarationDate)}</span></div>
+</div>
+
+<h2>2. Regulatory Reservation Clause / شرط التحفظ التنظيمي</h2>
+<span class="lang-tag">English</span>
+<p>${esc(REGULATORY_RESERVATION_CLAUSE_EN)}</p>
+<div class="ar-block">
+<span class="lang-tag">العربية</span>
+<p class="ar">${esc(REGULATORY_RESERVATION_CLAUSE_AR)}</p>
+</div>
+<div class="sig-box">
+  <div class="field"><span class="field-lbl">Accepted / قُبلت:</span><span>${kyc.regulatoryClauseAccepted ? "Yes ✓ / نعم" : "No"}</span></div>
+  <div class="field"><span class="field-lbl">Signed by / الاسم الكامل:</span><span>${esc(kyc.regulatoryClauseFullName)}</span></div>
+</div>
+
+<h2>3. Client Agreement / اتفاقية العميل</h2>
+<div class="id-box">
+  <h3>Client Identification / مستند التعريف</h3>
+  <div class="field"><span class="field-lbl">Full Name / الاسم الكامل:</span><span>${esc(kyc.agreementFullName || kyc.declarationFullName)}</span></div>
+  <div class="field"><span class="field-lbl">Nationality / الجنسية:</span><span>${esc(kyc.nationality)}</span></div>
+  <div class="field"><span class="field-lbl">${esc(idType)} / مستند التعريف:</span><span>${esc(idNum)}</span></div>
+  <div class="field"><span class="field-lbl">Place &amp; Date of Birth / محل وتاريخ الولادة:</span><span>${esc(birthInfo)}</span></div>
+  <div class="field"><span class="field-lbl">Address / العنوان:</span><span>${esc(address)}</span></div>
+</div>
+<div class="ar-block">
+<span class="lang-tag">نص الاتفاقية الكاملة</span>
+${plainParas(CLIENT_AGREEMENT_AR)}
+</div>
+<div class="sig-box">
+  <div class="field"><span class="field-lbl">Trading Partner / الشركة:</span><span>${esc(kyc.tradingCompany)}</span></div>
+  <div class="field"><span class="field-lbl">Commission Tier / العمولة:</span><span>${esc(kyc.tradingCommission)}</span></div>
+  <hr class="light">
+  <div class="field"><span class="field-lbl">Agreement Accepted / قُبلت الاتفاقية:</span><span>${kyc.agreementAccepted ? "Yes ✓ / نعم" : "No"}</span></div>
+  <div class="field"><span class="field-lbl">Signed by / الاسم الكامل:</span><span>${esc(kyc.agreementFullName)}</span></div>
+  <div class="field"><span class="field-lbl">Date &amp; Time / تاريخ ووقت التوقيع:</span><span>${fmtDT(kyc.agreementSignedAt)}</span></div>
+</div>
+
+<script>window.onload=()=>{window.focus();window.print();};</script>
+</body>
+</html>`;
+
+  win.document.write(html);
+  win.document.close();
 }
 
 const PAGE_WIDTH = 210;
