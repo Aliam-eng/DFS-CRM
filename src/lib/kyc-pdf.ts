@@ -268,6 +268,7 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
   doc.setTextColor("#000000");
   addFieldInline("Client", `${kyc.user.firstName} ${kyc.user.lastName}`);
   addFieldInline("Email", kyc.user.email);
+  addFieldInline("Phone", kyc.user.phone);
   addFieldInline("Submission Date", kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleString() : "-");
   addFieldInline("Status", fmt(kyc.status));
   addFieldInline("KYC ID", kyc.id);
@@ -336,6 +337,7 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
   addFieldInline("Length of Employment", kyc.lengthOfEmployment);
   addFieldInline("Institution Phone", kyc.institutionPhone);
   addFieldInline("Institution Email", kyc.institutionEmail);
+  addFieldInline("Personal/Institution Email", kyc.personalInstitutionEmail);
   addFieldInline("Institution Website", kyc.institutionWebsite);
   addFieldInline("Previous Profession", kyc.previousProfession);
   addFieldInline("University", kyc.universityName);
@@ -377,17 +379,32 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
   addHeader("Part F: Beneficial Owner");
   addBoolField("Acting on Behalf of Another", kyc.isActingOnBehalf);
   if (kyc.isActingOnBehalf) {
-    const bo = kyc.beneficialOwner as BeneficialOwnerInfo | null;
-    if (bo) {
-      addFieldInline("Full Name", bo.fullName);
-      addFieldInline("Date of Birth", fmtDate(bo.dateOfBirth));
-      addFieldInline("Nationality", bo.nationality);
-      addFieldInline("ID Number", bo.idNumber);
-      addFieldInline("Passport Number", bo.passportNumber);
-      addFieldInline("Passport Expiry", fmtDate(bo.passportExpiryDate));
-      addFieldInline("Relationship", bo.relationshipToAccountHolder);
-      addFieldInline("Ownership %", bo.ownershipPercentage);
-    }
+    // beneficialOwner is stored as { owners: BoEntry[] } (new) or flat BoEntry (legacy)
+    const boRaw = kyc.beneficialOwner as (BeneficialOwnerInfo & { owners?: BeneficialOwnerInfo[] }) | null;
+    const owners: BeneficialOwnerInfo[] = boRaw
+      ? (boRaw.owners ?? (boRaw.fullName ? [boRaw as BeneficialOwnerInfo] : []))
+      : [];
+    owners.forEach((owner, idx) => {
+      if (owners.length > 1) {
+        checkPage(LINE_HEIGHT);
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(9);
+        doc.setTextColor("#333333");
+        doc.text(`Beneficial Owner ${idx + 1}`, MARGIN, y);
+        y += LINE_HEIGHT;
+        doc.setFont("helvetica", "normal");
+        doc.setTextColor("#000000");
+      }
+      addFieldInline("Full Name", owner.fullName);
+      addFieldInline("Date of Birth", fmtDate(owner.dateOfBirth));
+      addFieldInline("Nationality", owner.nationality);
+      addFieldInline("ID Number", owner.idNumber);
+      addFieldInline("Passport Number", owner.passportNumber);
+      addFieldInline("Passport Expiry", fmtDate(owner.passportExpiryDate));
+      addFieldInline("Relationship", owner.relationshipToAccountHolder);
+      addFieldInline("Ownership %", owner.ownershipPercentage);
+    });
+    if (owners.length === 0) addFieldInline("Beneficial Owner", "Not provided");
   }
   addGap();
 
@@ -478,6 +495,7 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
   addBoolField("Accepted", kyc.agreementAccepted);
   addFieldInline("Signed by", kyc.agreementFullName);
   addFieldInline("Date", fmtDateTime(kyc.agreementSignedAt));
+  if (kyc.agreementSignatureIp) addFieldInline("Signature IP", kyc.agreementSignatureIp);
   addGap();
 
   // ── Review History ──
