@@ -28,7 +28,7 @@ import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { CheckCircle, XCircle, Clock, FileText, Download, FileSignature } from "lucide-react";
-import { generateKycPdf, printSignedDocs } from "@/lib/kyc-pdf";
+import { printKycPdf, printSignedDocs } from "@/lib/kyc-pdf";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -89,7 +89,7 @@ export default function AdminKycDetailPage() {
             <Button size="sm" variant="outline" leftIcon={<Icon as={FileSignature} boxSize={4} />} onClick={() => printSignedDocs(kyc)}>
               Print Signed Docs
             </Button>
-            <Button size="sm" variant="outline" leftIcon={<Icon as={Download} boxSize={4} />} onClick={() => generateKycPdf(kyc).save(`KYC-${kyc.id}.pdf`)}>
+            <Button size="sm" variant="outline" leftIcon={<Icon as={Download} boxSize={4} />} onClick={() => printKycPdf(kyc)}>
               Export PDF
             </Button>
             <StatusBadge status={kyc.status} />

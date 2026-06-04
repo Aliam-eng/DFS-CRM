@@ -19,7 +19,7 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { KycHistory } from "@/components/shared/kyc-history";
-import { generateKycPdf } from "@/lib/kyc-pdf";
+import { printKycPdf } from "@/lib/kyc-pdf";
 import { CheckCircle, XCircle, Clock, FileText, Download } from "lucide-react";
 
 interface Review { id: string; reviewType: string; decision: string; notes?: string; amlReportPath?: string; reviewedAt: string; reviewer: { firstName: string; lastName: string; role: string } }
@@ -89,7 +89,7 @@ export default function KycStatusPage() {
       <VStack spacing={6} align="stretch">
         <Flex align="center" justify="space-between">
           <Heading size="lg">KYC Application Status</Heading>
-          <Button size="sm" variant="outline" leftIcon={<Icon as={Download} boxSize={4} />} onClick={() => generateKycPdf(kyc as unknown as import("@/types/kyc").KycDetail).save(`KYC-${kyc.id}.pdf`)}>
+          <Button size="sm" variant="outline" leftIcon={<Icon as={Download} boxSize={4} />} onClick={() => printKycPdf(kyc as unknown as import("@/types/kyc").KycDetail)}>
             Export PDF
           </Button>
         </Flex>
