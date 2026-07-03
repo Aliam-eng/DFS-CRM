@@ -10,8 +10,12 @@ DOMAIN=""
 EMAIL=""
 REPO_URL="https://github.com/Aliam-eng/DFS-CRM.git"
 DB_PASSWORD=""
+SMTP_HOST="smtp-relay.brevo.com"
+SMTP_PORT="587"
+SMTP_SECURE="false"
 SMTP_USER=""
 SMTP_PASS=""
+SMTP_FROM=""
 STORAGE_PROVIDER="LOCAL"
 UPLOADTHING_TOKEN=""
 
@@ -38,8 +42,19 @@ read -p "GitHub repo URL [${REPO_URL}]: " INPUT_REPO
 REPO_URL="${INPUT_REPO:-$REPO_URL}"
 read -sp "Enter a database password: " DB_PASSWORD
 echo ""
-read -p "Enter SMTP email (Gmail): " SMTP_USER
-read -sp "Enter SMTP app password: " SMTP_PASS
+echo ""
+echo "--- SMTP (outgoing email for OTPs & KYC notifications) ---"
+read -p "SMTP host [${SMTP_HOST}]: " INPUT_SMTP_HOST
+SMTP_HOST="${INPUT_SMTP_HOST:-$SMTP_HOST}"
+read -p "SMTP port [${SMTP_PORT}]: " INPUT_SMTP_PORT
+SMTP_PORT="${INPUT_SMTP_PORT:-$SMTP_PORT}"
+read -p "SMTP secure (true for 465, false for 587) [${SMTP_SECURE}]: " INPUT_SMTP_SECURE
+SMTP_SECURE="${INPUT_SMTP_SECURE:-$SMTP_SECURE}"
+read -p "SMTP username / login (e.g. 98000d002@smtp-brevo.com): " SMTP_USER
+read -sp "SMTP password / API key: " SMTP_PASS
+echo ""
+read -p "Sender email 'From' [noreply@${DOMAIN}]: " INPUT_SMTP_FROM
+SMTP_FROM="${INPUT_SMTP_FROM:-noreply@${DOMAIN}}"
 echo ""
 read -p "Storage provider (LOCAL/UPLOADTHING) [LOCAL]: " INPUT_STORAGE
 STORAGE_PROVIDER="${INPUT_STORAGE:-LOCAL}"
@@ -89,12 +104,12 @@ DB_PASSWORD=${DB_PASSWORD}
 NEXTAUTH_SECRET=${NEXTAUTH_SECRET}
 AUTH_SECRET=${NEXTAUTH_SECRET}
 NEXTAUTH_URL=https://${DOMAIN}
-SMTP_HOST=smtp.gmail.com
-SMTP_PORT=587
-SMTP_SECURE=false
+SMTP_HOST=${SMTP_HOST}
+SMTP_PORT=${SMTP_PORT}
+SMTP_SECURE=${SMTP_SECURE}
 SMTP_USER=${SMTP_USER}
 SMTP_PASS=${SMTP_PASS}
-SMTP_FROM=noreply@${DOMAIN}
+SMTP_FROM=${SMTP_FROM}
 STORAGE_PROVIDER=${STORAGE_PROVIDER}
 UPLOADTHING_TOKEN=${UPLOADTHING_TOKEN}
 EOF
