@@ -559,8 +559,6 @@ export function printKycPdf(kyc: KycDetail): void {
 
   const row = (label: string, value: string | number | null | undefined) =>
     `<tr><th>${label}</th><td>${esc(value)}</td></tr>`;
-  const rowRaw = (label: string, valueHtml: string) =>
-    `<tr><th>${label}</th><td>${valueHtml}</td></tr>`;
 
   const commPrefs: string[] = [];
   if (kyc.preferEmail) commPrefs.push("Email");
