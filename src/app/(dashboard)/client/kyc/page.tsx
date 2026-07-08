@@ -148,6 +148,11 @@ export default function KycPage() {
     const init = async () => {
       const res = await fetch("/api/kyc", { method: "POST" });
       const kyc = await res.json();
+      if (!res.ok || !kyc?.id) {
+        setError(kyc?.error || `Failed to load KYC (HTTP ${res.status}). Please try again or contact support.`);
+        setLoading(false);
+        return;
+      }
       setKycId(kyc.id);
       // Set boolean defaults to false (No) if not already set
       const BOOL_DEFAULTS = ["isUsPerson", "isActingOnBehalf", "isAssociatedWithListed", "hasInsideInformation", "hasOtherBankAccounts"];
