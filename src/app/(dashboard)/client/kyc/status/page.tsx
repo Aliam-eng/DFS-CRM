@@ -46,7 +46,12 @@ export default function KycStatusPage() {
 
   const handleResubmit = async () => {
     if (!kyc) return;
-    await fetch(`/api/kyc/${kyc.id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ status: undefined }) });
+    const res = await fetch(`/api/kyc/${kyc.id}/resubmit`, { method: "POST" });
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ error: "Failed to reopen application" }));
+      alert(err.error || "Failed to reopen application");
+      return;
+    }
     window.location.href = "/client/kyc";
   };
 
