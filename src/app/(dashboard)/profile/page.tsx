@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -21,6 +21,7 @@ import {
   useToast,
 } from "@chakra-ui/react";
 import { User, Lock, Save } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface Profile {
   firstName: string;
@@ -218,7 +219,7 @@ export default function ProfilePage() {
             </HStack>
             {profile?.createdAt && (
               <Text fontSize="xs" color={mutedColor} mt={1}>
-                Member since {new Date(profile.createdAt).toLocaleDateString()}
+                Member since {formatDate(profile.createdAt)}
               </Text>
             )}
           </Box>

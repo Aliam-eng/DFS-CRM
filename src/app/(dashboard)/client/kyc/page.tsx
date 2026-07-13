@@ -84,6 +84,7 @@ import type {
   InvestmentExperienceData,
   BeneficialOwnerInfo,
 } from "@/types/kyc";
+import { formatDate as formatDDMY, formatDateTime as formatDDMYT } from "@/lib/date";
 
 /* ─── Step Configuration ─── */
 
@@ -1358,7 +1359,11 @@ function InvestmentExperienceStep({ form, updateField, errors }: StepProps) {
   return (
     <>
       <SectionHeader icon={BarChart3} label="Investment Experience / الخبرة في الاستثمار" />
-      <Text fontSize="sm" color="gray.500">Do you have investment experience? * (please answer for every instrument)</Text>
+      <Text fontSize="sm" color="gray.500">
+        Do you have investment experience? * (please answer for every instrument)
+        <br />
+        <Text as="span" dir="rtl">هل لديك خبرة في الاستثمار؟ * (يرجى تحديد جميع الخيارات المناسبة)</Text>
+      </Text>
 
       <Box overflowX="auto">
         <Table size="sm" variant="simple">
@@ -1604,7 +1609,7 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
     <VStack spacing={6} align="stretch">
       {/* Section 1: Identity Document Type Selection */}
       <Box>
-        <SectionHeader icon={FileText} label="Identity Document *" />
+        <SectionHeader icon={FileText} label="Identity Document / وثيقة الهوية *" />
 
         <FormControl isInvalid={!!errors.idDocumentType} mb={4}>
           <FormLabel>Select Identity Document Type / نوع وثيقة الهوية *</FormLabel>
@@ -1676,7 +1681,7 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
 
       {/* Section 2: Proof of Address */}
       <Box>
-        <SectionHeader icon={MapPin} label="Proof of Residential Address *" />
+        <SectionHeader icon={MapPin} label="Proof of Residential Address / إثبات السكن *" />
         <Text fontSize="xs" color={mutedColor} mt={1} mb={1}>
           Utility bill or bank statement (not older than 3 months)
         </Text>
@@ -1693,7 +1698,7 @@ function DocumentsStep({ form, updateField, docs, uploading, uploadFile, errors 
 
       {/* Section 3: Additional Document (optional) */}
       <Box>
-        <SectionHeader icon={Upload} label="Additional Document (Optional)" />
+        <SectionHeader icon={Upload} label="Additional Document (Optional) / مستند إضافي (اختياري)" />
         <Text fontSize="xs" color={mutedColor} mt={1} mb={1}>
           Upload any additional supporting document if applicable
         </Text>
@@ -1873,7 +1878,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
   const fullNameValue = [form.firstName, form.middleName, form.lastName].filter(Boolean).join(" ") || "—";
   const nationalityValue = (form.nationality as string) || "—";
   const placeOfBirthValue = (form.placeOfBirth as string) || "—";
-  const dobValue = form.dateOfBirth ? new Date(form.dateOfBirth as string).toLocaleDateString() : "—";
+  const dobValue = formatDDMY(form.dateOfBirth as string | null);
   const addressValue =
     [form.primaryStreet, form.primaryArea, form.primaryCity, form.primaryCountry]
       .filter(Boolean)
@@ -1885,7 +1890,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
 
   // Default declarationDate / agreement date should reflect when the client
   // arrives at this step.
-  const todayLocale = new Date().toLocaleDateString();
+  const todayLocale = formatDDMY(new Date());
 
   const handleSign = () => {
     const now = new Date().toISOString();
@@ -1990,7 +1995,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
           </FormControl>
 
           <Text fontSize="xs" color="gray.600">
-            <strong>Date / التاريخ:</strong> {form.agreementSignedAt ? new Date(form.agreementSignedAt as string).toLocaleString() : todayLocale}
+            <strong>Date / التاريخ:</strong> {form.agreementSignedAt ? formatDDMYT(form.agreementSignedAt as string) : todayLocale}
           </Text>
 
           {!isSigned && (
@@ -2009,7 +2014,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
               <Box>
                 <Text fontSize="sm" fontWeight="bold">Agreement signed</Text>
                 <Text fontSize="xs">
-                  Signed by {form.agreementFullName as string} on {new Date(form.agreementSignedAt as string).toLocaleString()}.
+                  Signed by {form.agreementFullName as string} on {formatDDMYT(form.agreementSignedAt as string)}.
                 </Text>
               </Box>
             </Alert>

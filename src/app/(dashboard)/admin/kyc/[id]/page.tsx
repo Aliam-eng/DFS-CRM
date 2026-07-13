@@ -30,6 +30,7 @@ import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { CheckCircle, XCircle, Clock, FileText, Download, FileSignature } from "lucide-react";
 import { printKycPdf, printSignedDocs } from "@/lib/kyc-pdf";
 import { formatDocumentType } from "@/lib/constants";
+import { formatDate, formatDateTime } from "@/lib/date";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -79,7 +80,7 @@ export default function AdminKycDetailPage() {
   const investmentExp = kyc.investmentExperience as InvestmentExperienceData | null;
   const bo = kyc.beneficialOwner as BeneficialOwnerInfo | null;
   const fmt = (s: string | null) => s ? s.replace(/_/g, " ") : "-";
-  const fmtDate = (s: string | null) => s ? new Date(s).toLocaleDateString() : "-";
+  const fmtDate = (s: string | null) => formatDate(s);
 
   return (
     <Box maxW="4xl" mx="auto">
@@ -104,8 +105,8 @@ export default function AdminKycDetailPage() {
             <Field label="Account Name" value={`${kyc.user.firstName} ${kyc.user.lastName}`} />
             <Field label="Email" value={kyc.user.email} />
             <Field label="Phone" value={kyc.user.phone} />
-            <Field label="Created" value={new Date(kyc.createdAt).toLocaleString()} />
-            <Field label="Submitted" value={kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleString() : "-"} />
+            <Field label="Created" value={formatDateTime(kyc.createdAt)} />
+            <Field label="Submitted" value={formatDateTime(kyc.submittedAt)} />
           </SimpleGrid>
         </Box>
 
@@ -303,7 +304,7 @@ export default function AdminKycDetailPage() {
               </Box>
               <Box>
                 <Text fontSize="sm" fontWeight="medium">KYC Created</Text>
-                <Text fontSize="xs" color={mutedColor}>{new Date(kyc.createdAt).toLocaleString()}</Text>
+                <Text fontSize="xs" color={mutedColor}>{formatDateTime(kyc.createdAt)}</Text>
               </Box>
             </HStack>
             {kyc.submittedAt && (
@@ -313,7 +314,7 @@ export default function AdminKycDetailPage() {
                 </Box>
                 <Box>
                   <Text fontSize="sm" fontWeight="medium">Submitted for Review</Text>
-                  <Text fontSize="xs" color={mutedColor}>{new Date(kyc.submittedAt).toLocaleString()}</Text>
+                  <Text fontSize="xs" color={mutedColor}>{formatDateTime(kyc.submittedAt)}</Text>
                 </Box>
               </HStack>
             )}
@@ -331,7 +332,7 @@ export default function AdminKycDetailPage() {
                       {elapsed !== null && <Text fontSize="xs" color={mutedColor}>({elapsed < 60 ? `${elapsed}m` : `${Math.round(elapsed / 60)}h ${elapsed % 60}m`} elapsed)</Text>}
                     </HStack>
                     <Text fontSize="xs" color={mutedColor}>By {review.reviewer.firstName} {review.reviewer.lastName} ({review.reviewer.role})</Text>
-                    <Text fontSize="xs" color={mutedColor}>{new Date(review.reviewedAt).toLocaleString()}</Text>
+                    <Text fontSize="xs" color={mutedColor}>{formatDateTime(review.reviewedAt)}</Text>
                     {review.notes && <Box mt={1} p={2} bg={mutedBg} borderRadius="md" fontSize="sm">{review.notes}</Box>}
                     {review.amlReportPath && <ChakraLink href={`/api/files/${review.amlReportPath}`} isExternal fontSize="xs" color="blue.500" _hover={{ textDecoration: "underline" }}>Download AML Report</ChakraLink>}
                     <Divider mt={3} />

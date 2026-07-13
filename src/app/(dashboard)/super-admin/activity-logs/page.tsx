@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -12,6 +12,7 @@ import {
 import { DataTable, Column } from "@/components/shared/data-table";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { useDebounce } from "@/hooks/use-debounce";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface ActivityLog {
   id: string;
@@ -96,7 +97,7 @@ export default function ActivityLogsPage() {
       label: "Date/Time",
       render: (log) => (
         <Text fontSize="xs">
-          {new Date(log.createdAt).toLocaleString()}
+          {formatDateTime(log.createdAt)}
         </Text>
       ),
     },

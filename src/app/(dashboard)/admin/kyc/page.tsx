@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -22,6 +22,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { KYC_STATUS_LABELS } from "@/lib/constants";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Download } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface Submission { id: string; status: string; submittedAt: string; createdAt: string; user: { firstName: string; lastName: string; email: string }; reviews: { reviewType: string; decision: string; reviewedAt: string; reviewer: { firstName: string; lastName: string } }[] }
 
@@ -71,13 +72,13 @@ export default function AdminKycPage() {
         `${s.user.firstName} ${s.user.lastName}`,
         s.user.email,
         KYC_STATUS_LABELS[s.status as keyof typeof KYC_STATUS_LABELS] || s.status,
-        s.submittedAt ? new Date(s.submittedAt).toLocaleDateString() : "-",
+        s.submittedAt ? formatDate(s.submittedAt) : "-",
         comp?.decision || "-",
         comp ? `${comp.reviewer.firstName} ${comp.reviewer.lastName}` : "-",
-        comp ? new Date(comp.reviewedAt).toLocaleDateString() : "-",
+        comp ? formatDate(comp.reviewedAt) : "-",
         ops?.decision || "-",
         ops ? `${ops.reviewer.firstName} ${ops.reviewer.lastName}` : "-",
-        ops ? new Date(ops.reviewedAt).toLocaleDateString() : "-",
+        ops ? formatDate(ops.reviewedAt) : "-",
       ]);
     });
 
@@ -115,14 +116,14 @@ export default function AdminKycPage() {
     {
       key: "submittedAt",
       label: "Submitted",
-      render: (s) => <Text fontSize="xs">{s.submittedAt ? new Date(s.submittedAt).toLocaleString() : "-"}</Text>,
+      render: (s) => <Text fontSize="xs">{s.submittedAt ? formatDateTime(s.submittedAt) : "-"}</Text>,
     },
     {
       key: "compliance",
       label: "Compliance",
       render: (s) => {
         const compReview = s.reviews?.find((r) => r.reviewType === "COMPLIANCE");
-        return <Text fontSize="xs">{compReview ? `${compReview.decision} by ${compReview.reviewer.firstName} (${new Date(compReview.reviewedAt).toLocaleDateString()})` : "-"}</Text>;
+        return <Text fontSize="xs">{compReview ? `${compReview.decision} by ${compReview.reviewer.firstName} (${formatDate(compReview.reviewedAt)})` : "-"}</Text>;
       },
     },
     {
@@ -130,7 +131,7 @@ export default function AdminKycPage() {
       label: "Operations",
       render: (s) => {
         const opsReview = s.reviews?.find((r) => r.reviewType === "OPERATIONS");
-        return <Text fontSize="xs">{opsReview ? `${opsReview.decision} by ${opsReview.reviewer.firstName} (${new Date(opsReview.reviewedAt).toLocaleDateString()})` : "-"}</Text>;
+        return <Text fontSize="xs">{opsReview ? `${opsReview.decision} by ${opsReview.reviewer.firstName} (${formatDate(opsReview.reviewedAt)})` : "-"}</Text>;
       },
     },
     {

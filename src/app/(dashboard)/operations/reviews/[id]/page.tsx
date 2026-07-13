@@ -40,6 +40,7 @@ import { KycHistory } from "@/components/shared/kyc-history";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { printKycPdf, printSignedDocs } from "@/lib/kyc-pdf";
 import { formatDocumentType } from "@/lib/constants";
+import { formatDate, formatDateTime } from "@/lib/date";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -123,7 +124,7 @@ export default function OperationsReviewDetailPage() {
   const investmentExp = kyc.investmentExperience as InvestmentExperienceData | null;
   const bo = kyc.beneficialOwner as BeneficialOwnerInfo | null;
   const fmt = (s: string | null) => s ? s.replace(/_/g, " ") : "-";
-  const fmtDate = (s: string | null) => s ? new Date(s).toLocaleDateString() : "-";
+  const fmtDate = (s: string | null) => formatDate(s);
 
   return (
     <Box maxW="4xl" mx="auto">
@@ -150,7 +151,7 @@ export default function OperationsReviewDetailPage() {
             <VStack spacing={2} align="stretch" fontSize="sm">
               <Box><Text as="strong">Reviewer:</Text> {operationsReview.reviewer.firstName} {operationsReview.reviewer.lastName}</Box>
               <HStack><Text as="strong">Decision:</Text> <StatusBadge status={operationsReview.decision} /></HStack>
-              <Box><Text as="strong">Date:</Text> {new Date(operationsReview.reviewedAt).toLocaleString()}</Box>
+              <Box><Text as="strong">Date:</Text> {formatDateTime(operationsReview.reviewedAt)}</Box>
               {operationsReview.notes && <Box><Text as="strong">Notes:</Text> {operationsReview.notes}</Box>}
             </VStack>
           </Box>
@@ -163,7 +164,7 @@ export default function OperationsReviewDetailPage() {
             <VStack spacing={2} align="stretch" fontSize="sm">
               <Box><Text as="strong">Reviewer:</Text> {complianceReview.reviewer.firstName} {complianceReview.reviewer.lastName}</Box>
               <HStack><Text as="strong">Decision:</Text> <StatusBadge status={complianceReview.decision} /></HStack>
-              <Box><Text as="strong">Date:</Text> {new Date(complianceReview.reviewedAt).toLocaleString()}</Box>
+              <Box><Text as="strong">Date:</Text> {formatDateTime(complianceReview.reviewedAt)}</Box>
               {complianceReview.notes && <Box><Text as="strong">Notes:</Text> {complianceReview.notes}</Box>}
               {complianceReview.amlReportPath && (
                 <Box><Text as="strong">AML Report:</Text> <ChakraLink href={`/api/files/${complianceReview.amlReportPath}`} isExternal color="blue.500">Download</ChakraLink></Box>

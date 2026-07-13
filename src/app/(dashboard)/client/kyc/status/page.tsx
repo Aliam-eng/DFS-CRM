@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -22,6 +22,7 @@ import { KycHistory } from "@/components/shared/kyc-history";
 import { printKycPdf } from "@/lib/kyc-pdf";
 import { formatDocumentType } from "@/lib/constants";
 import { CheckCircle, XCircle, Clock, FileText, Download } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface Review { id: string; reviewType: string; decision: string; notes?: string; amlReportPath?: string; reviewedAt: string; reviewer: { firstName: string; lastName: string; role: string } }
 interface KycData { id: string; status: string; submittedAt?: string; createdAt: string; reviews: Review[]; documents: { id: string; documentType: string; fileName: string; side?: string }[] }
@@ -109,15 +110,15 @@ export default function KycStatusPage() {
           </Box>
           <Box px={5} pb={5}>
             <VStack spacing={4} align="stretch" mt={2}>
-              <TimelineItem icon={<Icon as={FileText} boxSize={4} />} title="Application Created" date={new Date(kyc.createdAt).toLocaleString()} status="done" />
-              {kyc.submittedAt && <TimelineItem icon={<Icon as={Clock} boxSize={4} />} title="Submitted for Review" date={new Date(kyc.submittedAt).toLocaleString()} status="done" />}
+              <TimelineItem icon={<Icon as={FileText} boxSize={4} />} title="Application Created" date={formatDateTime(kyc.createdAt)} status="done" />
+              {kyc.submittedAt && <TimelineItem icon={<Icon as={Clock} boxSize={4} />} title="Submitted for Review" date={formatDateTime(kyc.submittedAt)} status="done" />}
 
               {kyc.reviews.map((review) => (
                 <Box key={review.id}>
                   <TimelineItem
                     icon={review.decision === "APPROVED" ? <Icon as={CheckCircle} boxSize={4} color="green.500" /> : <Icon as={XCircle} boxSize={4} color="red.500" />}
                     title={`${review.reviewType === "COMPLIANCE" ? "Compliance" : "Operations"} Review: ${review.decision}`}
-                    date={new Date(review.reviewedAt).toLocaleString()}
+                    date={formatDateTime(review.reviewedAt)}
                     status={review.decision === "APPROVED" ? "done" : "rejected"}
                   />
                   {review.notes && (

@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -11,6 +11,7 @@ import {
   Skeleton,
   useColorModeValue,
 } from "@chakra-ui/react";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface HistoryEntry {
   id: string;
@@ -141,7 +142,7 @@ export function KycHistory({ kycId }: { kycId: string }) {
                     {formatAction(entry.action)}
                   </Badge>
                   <Text fontSize="xs" color={mutedColor}>
-                    {new Date(entry.createdAt).toLocaleString()}
+                    {formatDateTime(entry.createdAt)}
                   </Text>
                 </HStack>
 

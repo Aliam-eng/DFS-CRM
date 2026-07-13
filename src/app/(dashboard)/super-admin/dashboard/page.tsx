@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -26,6 +26,7 @@ import { SimpleBarChart } from "@/components/shared/simple-bar-chart";
 import { AdminDashboardSkeleton } from "@/components/shared/loading-skeletons";
 import { Users, FileText, Shield, Settings, TrendingUp, Clock } from "lucide-react";
 import { ROLE_LABELS } from "@/lib/constants";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface Stats {
   totalClients: number;
@@ -166,7 +167,7 @@ export default function SuperAdminDashboard() {
                       <Td fontSize="sm">{r.clientName}</Td>
                       <Td fontSize="sm">{r.reviewer}</Td>
                       <Td><StatusBadge status={r.decision} /></Td>
-                      <Td fontSize="sm">{new Date(r.date).toLocaleDateString()}</Td>
+                      <Td fontSize="sm">{formatDate(r.date)}</Td>
                     </Tr>
                   ))}
                 </Tbody>

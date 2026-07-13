@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState, useCallback } from "react";
 import {
@@ -19,6 +19,7 @@ import { ShieldCheck } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { TableSkeleton } from "@/components/shared/loading-skeletons";
 import { useDebounce } from "@/hooks/use-debounce";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface ClientUser {
   id: string;
@@ -142,7 +143,7 @@ export default function ClientVerificationPage() {
                           {u.status.replace(/_/g, " ")}
                         </Badge>
                         <Text fontSize="xs" color={mutedColor}>
-                          Joined {new Date(u.createdAt).toLocaleDateString()}
+                          Joined {formatDate(u.createdAt)}
                         </Text>
                       </HStack>
                     </Box>

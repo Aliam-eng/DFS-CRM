@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import {
@@ -33,6 +33,7 @@ import { ROLE_LABELS } from "@/lib/constants";
 import { Plus, Edit2, Trash2, KeyRound } from "lucide-react";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { useDebounce } from "@/hooks/use-debounce";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface User { id: string; email: string; firstName: string; lastName: string; phone?: string; role: string; status: string; createdAt: string }
 
@@ -228,7 +229,7 @@ export default function SuperAdminUsersPage() {
     {
       key: "createdAt",
       label: "Created",
-      render: (u) => <Text fontSize="xs">{new Date(u.createdAt).toLocaleDateString()}</Text>,
+      render: (u) => <Text fontSize="xs">{formatDate(u.createdAt)}</Text>,
     },
     {
       key: "actions",

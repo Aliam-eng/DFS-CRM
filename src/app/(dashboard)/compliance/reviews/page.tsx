@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -17,6 +17,7 @@ import {
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSkeleton } from "@/components/shared/loading-skeletons";
 import { useDebounce } from "@/hooks/use-debounce";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface Submission { id: string; status: string; submittedAt: string; user: { firstName: string; lastName: string; email: string } }
 
@@ -62,7 +63,7 @@ export default function ComplianceReviewsPage() {
                   <Box>
                     <Text fontWeight="medium">{s.user.firstName} {s.user.lastName}</Text>
                     <Text fontSize="sm" color={mutedColor}>{s.user.email}</Text>
-                    {s.submittedAt && <Text fontSize="xs" color={mutedColor}>Submitted: {new Date(s.submittedAt).toLocaleString()}</Text>}
+                    {s.submittedAt && <Text fontSize="xs" color={mutedColor}>Submitted: {formatDateTime(s.submittedAt)}</Text>}
                   </Box>
                   <HStack spacing={3}>
                     <StatusBadge status={s.status} />

@@ -16,8 +16,18 @@ export function printSignedDocs(kyc: KycDetail): void {
   const esc = (s: string | null | undefined) =>
     (s ?? "-").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  const fmtD = (s: string | null | undefined) => s ? new Date(s).toLocaleDateString() : "-";
-  const fmtDT = (s: string | null | undefined) => s ? new Date(s).toLocaleString() : "-";
+  const fmtD = (s: string | null | undefined) => {
+    if (!s) return "-";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "-";
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  };
+  const fmtDT = (s: string | null | undefined) => {
+    if (!s) return "-";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "-";
+    return `${fmtD(s)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
 
   const structuredParas = (items: LegalParagraph[], rtl: boolean) =>
     items.map(p => {
@@ -34,7 +44,7 @@ export function printSignedDocs(kyc: KycDetail): void {
   const clientName = `${kyc.user.firstName} ${kyc.user.lastName}`;
   const idType = kyc.passportNumber ? "Passport" : "National ID";
   const idNum = kyc.passportNumber || kyc.idNumber || "-";
-  const birthInfo = [kyc.placeOfBirth, kyc.dateOfBirth ? new Date(kyc.dateOfBirth).toLocaleDateString() : null].filter(Boolean).join(", ") || "-";
+  const birthInfo = [kyc.placeOfBirth, fmtD(kyc.dateOfBirth) === "-" ? null : fmtD(kyc.dateOfBirth)].filter(Boolean).join(", ") || "-";
   const address = [kyc.primaryBuilding, kyc.primaryStreet, kyc.primaryArea, kyc.primaryCity, kyc.primaryCountry].filter(Boolean).join(", ") || "-";
 
   const html = `<!DOCTYPE html>
@@ -140,11 +150,21 @@ function fmt(s: string | null | undefined): string {
 }
 
 function fmtDate(s: string | null | undefined): string {
-  return s ? new Date(s).toLocaleDateString() : "-";
+  if (!s) return "-";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "-";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
 }
 
 function fmtDateTime(s: string | null | undefined): string {
-  return s ? new Date(s).toLocaleString() : "-";
+  if (!s) return "-";
+  const d = new Date(s);
+  if (isNaN(d.getTime())) return "-";
+  const hh = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${fmtDate(s)} ${hh}:${min}`;
 }
 
 function boolStr(v: boolean | null | undefined): string {
@@ -269,7 +289,7 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
   addFieldInline("Client", `${kyc.user.firstName} ${kyc.user.lastName}`);
   addFieldInline("Email", kyc.user.email);
   addFieldInline("Phone", kyc.user.phone);
-  addFieldInline("Submission Date", kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleString() : "-");
+  addFieldInline("Submission Date", fmtDateTime(kyc.submittedAt));
   addFieldInline("Status", fmt(kyc.status));
   addFieldInline("KYC ID", kyc.id);
   addGap();
@@ -513,7 +533,7 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
       doc.setTextColor("#000000");
       doc.text(`Reviewer: ${review.reviewer.firstName} ${review.reviewer.lastName} (${review.reviewer.role})`, MARGIN, y);
       y += LINE_HEIGHT;
-      doc.text(`Date: ${new Date(review.reviewedAt).toLocaleString()}`, MARGIN, y);
+      doc.text(`Date: ${fmtDateTime(review.reviewedAt)}`, MARGIN, y);
       y += LINE_HEIGHT;
       if (review.notes) {
         const noteLines = doc.splitTextToSize(`Notes: ${review.notes}`, CONTENT_WIDTH);
@@ -552,8 +572,18 @@ export function printKycPdf(kyc: KycDetail): void {
     (s == null || s === "" ? "-" : String(s))
       .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-  const fmtD = (s: string | null | undefined) => s ? new Date(s).toLocaleDateString() : "-";
-  const fmtDT = (s: string | null | undefined) => s ? new Date(s).toLocaleString() : "-";
+  const fmtD = (s: string | null | undefined) => {
+    if (!s) return "-";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "-";
+    return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}/${d.getFullYear()}`;
+  };
+  const fmtDT = (s: string | null | undefined) => {
+    if (!s) return "-";
+    const d = new Date(s);
+    if (isNaN(d.getTime())) return "-";
+    return `${fmtD(s)} ${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+  };
   const yn = (v: boolean | null | undefined) => v === true ? "Yes / نعم" : v === false ? "No / لا" : "-";
   const fmtEnum = (s: string | null | undefined) => s ? s.replace(/_/g, " ") : "-";
 

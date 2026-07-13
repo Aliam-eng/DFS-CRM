@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useNotifications } from "@/hooks/use-notifications";
 import {
@@ -15,6 +15,7 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react";
 import { Bell } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 export default function NotificationsPage() {
   const { notifications, unreadCount, markAsRead, markAllAsRead, isLoading } = useNotifications();
@@ -70,7 +71,7 @@ export default function NotificationsPage() {
                       </Box>
                       {!n.read && <Box h={2} w={2} borderRadius="full" bg={dotColor} mt={2} flexShrink={0} />}
                     </Flex>
-                    <Text fontSize="xs" color={mutedColor} mt={2}>{new Date(n.createdAt).toLocaleString()}</Text>
+                    <Text fontSize="xs" color={mutedColor} mt={2}>{formatDateTime(n.createdAt)}</Text>
                   </Box>
                 ))}
               </VStack>

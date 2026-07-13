@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -16,6 +16,7 @@ import { StatCard } from "@/components/shared/stat-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { SimpleBarChart } from "@/components/shared/simple-bar-chart";
 import { ClipboardCheck, CheckCircle, XCircle, Clock, TrendingUp } from "lucide-react";
+import { formatDate, formatDateTime } from "@/lib/date";
 
 interface MyStats { total: number; approved: number; rejected: number; avgTime: number }
 interface Analytics {
@@ -95,7 +96,7 @@ export default function ComplianceDashboard() {
                 <Flex key={i} justify="space-between" align="center" p={3} borderWidth="1px" borderColor={borderColor} borderRadius="md">
                   <Box>
                     <Text fontSize="sm" fontWeight="medium">{r.clientName}</Text>
-                    <Text fontSize="xs" color={mutedColor}>{new Date(r.date).toLocaleString()}</Text>
+                    <Text fontSize="xs" color={mutedColor}>{formatDateTime(r.date)}</Text>
                   </Box>
                   <StatusBadge status={r.decision} />
                 </Flex>

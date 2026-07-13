@@ -41,6 +41,7 @@ import { KycHistory } from "@/components/shared/kyc-history";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { printKycPdf } from "@/lib/kyc-pdf";
 import { formatDocumentType } from "@/lib/constants";
+import { formatDate, formatDateTime } from "@/lib/date";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -123,7 +124,7 @@ export default function ComplianceReviewDetailPage() {
   const investmentExp = kyc.investmentExperience as InvestmentExperienceData | null;
   const bo = kyc.beneficialOwner as BeneficialOwnerInfo | null;
   const fmt = (s: string | null) => s ? s.replace(/_/g, " ") : "-";
-  const fmtDate = (s: string | null) => s ? new Date(s).toLocaleDateString() : "-";
+  const fmtDate = (s: string | null) => formatDate(s);
 
   return (
     <Box maxW="4xl" mx="auto">
@@ -149,7 +150,7 @@ export default function ComplianceReviewDetailPage() {
             </HStack>
             <VStack spacing={1} align="stretch" fontSize="sm">
               <Text><Text as="strong">Reviewed by:</Text> {operationsReview.reviewer.firstName} {operationsReview.reviewer.lastName}</Text>
-              <Text><Text as="strong">Date:</Text> {new Date(operationsReview.reviewedAt).toLocaleString()}</Text>
+              <Text><Text as="strong">Date:</Text> {formatDateTime(operationsReview.reviewedAt)}</Text>
               {operationsReview.notes && <Text><Text as="strong">Notes:</Text> {operationsReview.notes}</Text>}
             </VStack>
           </Box>
@@ -162,7 +163,7 @@ export default function ComplianceReviewDetailPage() {
             <Field label="Account Name" value={`${kyc.user.firstName} ${kyc.user.lastName}`} />
             <Field label="Email" value={kyc.user.email} />
             <Field label="Phone" value={kyc.user.phone} />
-            <Field label="Submitted" value={kyc.submittedAt ? new Date(kyc.submittedAt).toLocaleString() : "-"} />
+            <Field label="Submitted" value={formatDateTime(kyc.submittedAt)} />
           </SimpleGrid>
         </Box>
 
@@ -388,7 +389,7 @@ export default function ComplianceReviewDetailPage() {
                     <StatusBadge status={r.decision} />
                   </Flex>
                   {r.notes && <Text fontSize="sm" color={mutedColor} mt={1}>{r.notes}</Text>}
-                  <Text fontSize="xs" color={mutedColor} mt={1}>{new Date(r.reviewedAt).toLocaleString()}</Text>
+                  <Text fontSize="xs" color={mutedColor} mt={1}>{formatDateTime(r.reviewedAt)}</Text>
                 </Box>
               ))}
             </VStack>
