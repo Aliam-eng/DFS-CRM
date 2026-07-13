@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -67,6 +67,7 @@ import {
   INVESTMENT_OBJECTIVE_OPTIONS,
   RISK_TOLERANCE_OPTIONS,
   INVESTMENT_INSTRUMENT_OPTIONS,
+  formatDocumentType,
 } from "@/lib/constants";
 import { FormStepper } from "@/components/shared/form-stepper";
 import { FileUploadZone } from "@/components/shared/file-upload-zone";
@@ -81,6 +82,7 @@ import {
 } from "@/lib/kyc-legal-texts";
 import type {
   InvestmentExperienceData,
+  BeneficialOwnerInfo,
 } from "@/types/kyc";
 
 /* ─── Step Configuration ─── */
@@ -1979,108 +1981,313 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
    STEP 13: REVIEW & SUBMIT
    ═══════════════════════════════════════════ */
 
+// Look up bilingual label (EN / AR) from an OPTIONS array by enum value
+function optLabel(options: { value: string; label: string }[], value: unknown): string {
+  if (value == null || value === "") return "-";
+  const found = options.find((o) => o.value === value);
+  return found ? found.label : String(value).replace(/_/g, " ");
+}
+
+function multiOptLabels(options: { value: string; label: string }[], values: unknown): string {
+  const arr = Array.isArray(values) ? values : [];
+  if (!arr.length) return "-";
+  return arr.map((v) => optLabel(options, v)).join(", ");
+}
+
+function yn(v: unknown): string {
+  if (v === true) return "Yes / نعم";
+  if (v === false) return "No / لا";
+  return "-";
+}
+
+function fmtDate(v: unknown): string {
+  if (!v || typeof v !== "string") return "-";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return "-";
+  const dd = String(d.getDate()).padStart(2, "0");
+  const mm = String(d.getMonth() + 1).padStart(2, "0");
+  return `${dd}/${mm}/${d.getFullYear()}`;
+}
+
+function fmtDateTime(v: unknown): string {
+  if (!v || typeof v !== "string") return "-";
+  const d = new Date(v);
+  if (isNaN(d.getTime())) return "-";
+  return `${fmtDate(v)} ${d.toLocaleTimeString()}`;
+}
+
 function DeclarationReviewStep({ form, docs, warningBg, warningBorder }: DeclarationReviewStepProps) {
+  const isMarried = form.maritalStatus === "MARRIED";
+  const isEmployed = form.employmentCategory === "EMPLOYED" || form.employmentCategory === "SELF_EMPLOYED" || form.employmentCategory === "BUSINESS_OWNER";
+  const isRetiredOrUnemployed = form.employmentCategory === "RETIRED" || form.employmentCategory === "UNEMPLOYED";
+  const isStudent = form.employmentCategory === "STUDENT";
+
+  // Beneficial owner list (supports new {owners:[]} format and legacy flat object)
+  const boRaw = form.beneficialOwner as (BeneficialOwnerInfo & { owners?: BeneficialOwnerInfo[] }) | null;
+  const owners: BeneficialOwnerInfo[] = boRaw
+    ? (boRaw.owners ?? (boRaw.fullName ? [boRaw as BeneficialOwnerInfo] : []))
+    : [];
+
+  const investmentExp = (form.investmentExperience as InvestmentExperienceData | null) || null;
+
+  const commPrefs: string[] = [];
+  if (form.preferEmail) commPrefs.push("Email / بريد إلكتروني");
+  if (form.preferSMS) commPrefs.push("SMS / رسائل نصية");
+  if (form.preferWhatsApp) commPrefs.push("WhatsApp / واتساب");
+  if (form.preferOther) commPrefs.push(`${(form.preferOtherDetails as string) || "Other / أخرى"}`);
+
+  const pepOpts: string[] = [];
+  if (form.pepStatus === "NOT_PEP") pepOpts.push("NOT a PEP / لست شخصاً مكشوفاً سياسياً");
+  if (form.pepIsSelf) pepOpts.push("Is a PEP / شخص مكشوف سياسياً");
+  if (form.pepIsFamily) pepOpts.push("Family / associate of a PEP / أحد أفراد عائلة أو مقرّب لشخص مكشوف سياسياً");
+
   return (
     <VStack spacing={4} align="stretch">
-      {/* Review sections */}
       <ReviewSection
         icon={User}
-        title="Part A: Personal Information"
+        title="PART A: PERSONAL INFORMATION / المعلومات الشخصية"
         accentColor="brand.500"
         fields={[
-          { label: "Name", value: `${form.firstName || ""} ${form.middleName || ""} ${form.lastName || ""}`.trim() || "-" },
-          { label: "Date of Birth", value: form.dateOfBirth ? new Date(form.dateOfBirth as string).toLocaleDateString() : "-" },
-          { label: "Gender", value: (form.gender as string) || "-" },
-          { label: "Nationality", value: (form.nationality as string) || "-" },
-          { label: "Phone", value: (form.phoneNumber as string) || "-" },
-          { label: "Email", value: (form.emailAddress as string) || "-" },
-          { label: "Marital Status", value: (form.maritalStatus as string) || "-" },
+          { label: "First Name / الاسم الأول", value: (form.firstName as string) || "-" },
+          { label: "Last Name / الشهرة", value: (form.lastName as string) || "-" },
+          { label: "Middle Name (Father's Name) / اسم الأب", value: (form.middleName as string) || "-" },
+          { label: "Mother's Full Name / اسم الأم وشهرتها", value: (form.mothersFullName as string) || "-" },
+          { label: "Place of Birth / مكان الولادة", value: (form.placeOfBirth as string) || "-" },
+          { label: "Date of Birth / تاريخ الولادة", value: fmtDate(form.dateOfBirth) },
+          { label: "Gender / الجنس", value: optLabel(GENDER_OPTIONS, form.gender) },
+          { label: "Marital Status / الحالة الاجتماعية", value: optLabel(MARITAL_STATUS_OPTIONS, form.maritalStatus) },
+          ...(isMarried ? [
+            { label: "Spouse Full Name / اسم الزوج/ة", value: (form.spouseFullName as string) || "-" },
+            { label: "Spouse Profession / مهنة الزوج/ة", value: (form.spouseProfession as string) || "-" },
+          ] : []),
+          { label: "Number of Dependents / عدد المعالين", value: form.numberOfDependents != null ? String(form.numberOfDependents) : "-" },
+          { label: "Nationality / الجنسية", value: (form.nationality as string) || "-" },
+          { label: "Other Nationality / جنسية أخرى", value: (form.otherNationality as string) || "-" },
+          { label: "ID Number / رقم الهوية", value: (form.idNumber as string) || "-" },
+          { label: "ID Issue Date / تاريخ إصدار الهوية", value: fmtDate(form.idIssueDate) },
+          { label: "Passport Number / رقم جواز السفر", value: (form.passportNumber as string) || "-" },
+          { label: "Passport Expiry Date / تاريخ انتهاء الجواز", value: fmtDate(form.passportExpiryDate) },
+          { label: "Phone / الهاتف", value: (form.phoneNumber as string) || "-" },
+          { label: "Email / البريد الإلكتروني", value: (form.emailAddress as string) || "-" },
         ]}
       />
-
       <ReviewSection
         icon={MapPin}
-        title="Part B: Address"
+        title="PART B: PERMANENT RESIDENTIAL ADDRESS AND OVERSEAS ADDRESS (IF APPLICABLE) / عنوان السكن الدائم والعنوان في الخارج (إذا وجد)"
         accentColor="brand.500"
         fields={[
-          { label: "Home Status", value: (form.homeStatus as string) || "-" },
-          { label: "Country", value: (form.primaryCountry as string) || "-" },
-          { label: "City", value: (form.primaryCity as string) || "-" },
-          { label: "Area", value: (form.primaryArea as string) || "-" },
-          { label: "Street", value: (form.primaryStreet as string) || "-" },
-          ...(form.hasSecondaryAddress ? [
-            { label: "Secondary Country", value: (form.secondaryCountry as string) || "-" },
-            { label: "Secondary City", value: (form.secondaryCity as string) || "-" },
+          { label: "Home Status / السكن", value: optLabel(HOME_STATUS_OPTIONS, form.homeStatus) },
+          { label: "Country / الدولة", value: (form.primaryCountry as string) || "-" },
+          { label: "City / المدينة", value: (form.primaryCity as string) || "-" },
+          { label: "Area / المنطقة", value: (form.primaryArea as string) || "-" },
+          { label: "Street / الشارع", value: (form.primaryStreet as string) || "-" },
+          { label: "Building / المبنى", value: (form.primaryBuilding as string) || "-" },
+          { label: "Floor / الطابق", value: (form.primaryFloor as string) || "-" },
+          { label: "Apartment / الشقة", value: (form.primaryApartment as string) || "-" },
+          ...(form.hasSecondaryAddress === true ? [
+            { label: "Secondary Home Status / السكن (الثاني)", value: optLabel(HOME_STATUS_OPTIONS, form.secondaryHomeStatus) },
+            { label: "Secondary Country / الدولة (الثانية)", value: (form.secondaryCountry as string) || "-" },
+            { label: "Secondary City / المدينة (الثانية)", value: (form.secondaryCity as string) || "-" },
+            { label: "Secondary Area / المنطقة (الثانية)", value: (form.secondaryArea as string) || "-" },
+            { label: "Secondary Street / الشارع (الثاني)", value: (form.secondaryStreet as string) || "-" },
+            { label: "Secondary Building / المبنى (الثاني)", value: (form.secondaryBuilding as string) || "-" },
+            { label: "Secondary Floor / الطابق (الثاني)", value: (form.secondaryFloor as string) || "-" },
+            { label: "Secondary Apartment / الشقة (الثانية)", value: (form.secondaryApartment as string) || "-" },
           ] : []),
         ]}
       />
-
       <ReviewSection
         icon={Briefcase}
-        title="Part C: Employment"
+        title="PART C: OCCUPATION AND EMPLOYMENT STATUS / المهنة والحالة الوظيفية"
         accentColor="navy.500"
         fields={[
-          { label: "Status", value: (form.employmentCategory as string)?.replace(/_/g, " ") || "-" },
-          { label: "Profession", value: (form.currentProfession as string) || "-" },
-          { label: "Company", value: (form.institutionName as string) || "-" },
+          { label: "Employment Status / الوضع المهني", value: optLabel(EMPLOYMENT_CATEGORY_OPTIONS, form.employmentCategory) },
+          ...(isEmployed ? [
+            { label: "Current Profession / المهنة الحالية", value: (form.currentProfession as string) || "-" },
+            { label: "Institution / Company Name / اسم المؤسسة", value: (form.institutionName as string) || "-" },
+            { label: "Nature of Business / طبيعة العمل", value: (form.natureOfBusiness as string) || "-" },
+            { label: "Length of Employment / مدة العمل", value: (form.lengthOfEmployment as string) || "-" },
+            { label: "Institution Phone / هاتف المؤسسة", value: (form.institutionPhone as string) || "-" },
+            { label: "Institution Email / بريد المؤسسة", value: (form.institutionEmail as string) || "-" },
+            { label: "Your Institutional Email / بريدك المؤسسي", value: (form.personalInstitutionEmail as string) || "-" },
+            { label: "Website / الموقع الإلكتروني", value: (form.institutionWebsite as string) || "-" },
+          ] : []),
+          ...(isRetiredOrUnemployed ? [
+            { label: "Previous Profession / المهنة السابقة", value: (form.previousProfession as string) || "-" },
+          ] : []),
+          ...(isStudent ? [
+            { label: "University / الجامعة", value: (form.universityName as string) || "-" },
+            { label: "Major / التخصص", value: (form.major as string) || "-" },
+            { label: "Expected Graduation Year / سنة التخرج المتوقعة", value: form.expectedGraduationYear != null ? String(form.expectedGraduationYear) : "-" },
+          ] : []),
+          { label: "Director of Listed Company / مدير في شركة مدرجة", value: yn(form.isDirectorOfListed) },
+          ...(form.isDirectorOfListed === true ? [
+            { label: "Company Name / اسم الشركة", value: (form.directorCompanyName as string) || "-" },
+            { label: "Stock Exchange / البورصة", value: (form.directorStockExchange as string) || "-" },
+            { label: "Position / المنصب", value: (form.directorPosition as string) || "-" },
+            { label: "Appointment Date / تاريخ التعيين", value: fmtDate(form.directorAppointmentDate) },
+          ] : []),
         ]}
       />
-
+      <ReviewSection
+        icon={MessageSquare}
+        title="PART D: COMMUNICATION PREFERENCES / تفضيلات التواصل"
+        accentColor="green.500"
+        fields={[
+          { label: "Preferred Methods / الوسائل المفضلة", value: commPrefs.length ? commPrefs.join(", ") : "-", colSpan: 2 },
+        ]}
+      />
       <ReviewSection
         icon={DollarSign}
-        title="Parts D & E: Communication & Financial"
+        title="PART E: FINANCIAL INFORMATION / المعلومات المالية"
         accentColor="green.500"
         fields={[
-          { label: "Annual Income", value: (form.annualIncomeRange as string)?.replace(/_/g, " ") || "-" },
-          { label: "Source of Funds", value: ((form.sourceOfFunds as string[]) || []).map((v) => v.replace(/_/g, " ")).join(", ") || "-" },
-          { label: "Net Worth", value: (form.estimatedNetWorth as string)?.replace(/_/g, " ") || "-" },
-          { label: "Source of Wealth", value: ((form.sourceOfWealth as string[]) || []).map((v) => v.replace(/_/g, " ")).join(", ") || "-" },
-          { label: "US Person", value: form.isUsPerson === true ? "Yes" : form.isUsPerson === false ? "No" : "-" },
+          { label: "Approximate Annual Income (in USD) / الدخل السنوي التقريبي", value: optLabel(ANNUAL_INCOME_RANGE_OPTIONS, form.annualIncomeRange) },
+          { label: "Source of Funds / مصدر الأموال", value: multiOptLabels(SOURCE_OF_FUNDS_OPTIONS, form.sourceOfFunds) },
+          ...(form.sourceOfFundsOther ? [
+            { label: "Source of Funds (Other) / مصدر آخر للأموال", value: (form.sourceOfFundsOther as string) },
+          ] : []),
+          { label: "Estimated Net Worth / صافي الثروة التقديري", value: optLabel(NET_WORTH_RANGE_OPTIONS, form.estimatedNetWorth) },
+          { label: "Source of Wealth / مصدر الثروة", value: multiOptLabels(SOURCE_OF_WEALTH_OPTIONS, form.sourceOfWealth) },
+          ...(form.sourceOfWealthOther ? [
+            { label: "Source of Wealth (Other) / مصدر آخر للثروة", value: (form.sourceOfWealthOther as string) },
+          ] : []),
+          { label: "Has Other Bank Accounts / حسابات بنكية أخرى", value: yn(form.hasOtherBankAccounts) },
+          ...(form.hasOtherBankAccounts ? [
+            { label: "Other Bank Country / دولة البنك الآخر", value: (form.otherBankCountry as string) || "-" },
+          ] : []),
+          { label: "US Person / مواطن أمريكي", value: yn(form.isUsPerson) },
         ]}
       />
-
       <ReviewSection
-        icon={Target}
-        title="Parts F, G & H: Investment"
+        icon={Users}
+        title="PART F: BENEFICIAL OWNER / المستفيد الفعلي"
         accentColor="purple.500"
         fields={[
-          { label: "Beneficial Owner", value: form.isActingOnBehalf === true ? "Yes" : "No" },
-          { label: "Strategy", value: (form.investmentStrategy as string) || "-" },
-          { label: "Objective", value: (form.investmentObjective as string)?.replace(/_/g, " ") || "-" },
-          { label: "Risk Tolerance", value: (form.riskTolerance as string) || "-" },
+          { label: "Are you the Beneficial Owner? / هل أنت المستفيد الفعلي؟", value: form.isActingOnBehalf === true ? "No — someone else / لا، شخص آخر" : form.isActingOnBehalf === false ? "Yes / نعم" : "-", colSpan: 2 },
         ]}
       />
-
+      {form.isActingOnBehalf === true && owners.length > 0 && owners.map((o, i) => (
+        <ReviewSection
+          key={i}
+          icon={Users}
+          title={owners.length > 1 ? `Beneficial Owner ${i + 1} / المستفيد الفعلي ${i + 1}` : "Beneficial Owner Details / تفاصيل المستفيد الفعلي"}
+          accentColor="purple.400"
+          fields={[
+            { label: "Full Name / الاسم الكامل", value: o.fullName || "-" },
+            { label: "Date of Birth / تاريخ الولادة", value: fmtDate(o.dateOfBirth) },
+            { label: "Nationality / الجنسية", value: o.nationality || "-" },
+            { label: "ID Number / رقم الهوية", value: o.idNumber || "-" },
+            { label: "Passport Number / رقم الجواز", value: o.passportNumber || "-" },
+            { label: "Passport Expiry / تاريخ انتهاء الجواز", value: fmtDate(o.passportExpiryDate) },
+            { label: "Relationship / صلة القرابة", value: o.relationshipToAccountHolder || "-" },
+            { label: "% Ownership / نسبة الملكية", value: o.ownershipPercentage || "-" },
+          ]}
+        />
+      ))}
       <ReviewSection
-        icon={Shield}
-        title="Parts I & J: Compliance"
+        icon={Target}
+        title="PART G: INVESTMENT PROFILE / الملف الاستثماري"
+        accentColor="purple.500"
+        fields={[
+          { label: "Investment Strategy / استراتيجية الاستثمار", value: optLabel(INVESTMENT_STRATEGY_OPTIONS, form.investmentStrategy) },
+          { label: "Investment Objective / هدف الاستثمار", value: optLabel(INVESTMENT_OBJECTIVE_OPTIONS, form.investmentObjective) },
+          ...(form.investmentObjectiveOther ? [
+            { label: "Objective (Other) / هدف آخر", value: (form.investmentObjectiveOther as string) },
+          ] : []),
+          { label: "Speculative Risk Tolerance / مدى تحمل المخاطر التكهنية", value: optLabel(RISK_TOLERANCE_OPTIONS, form.riskTolerance) },
+        ]}
+      />
+      <Box bg="white" borderWidth="1px" borderRadius="lg" borderTopWidth="3px" borderTopColor="purple.500" p={4}>
+        <HStack spacing={3} mb={3}>
+          <Flex w={8} h={8} borderRadius="md" bg="purple.50" align="center" justify="center">
+            <Icon as={BarChart3} boxSize={4} color="purple.500" />
+          </Flex>
+          <Text fontSize="sm" fontWeight="semibold">PART H: INVESTMENT EXPERIENCE / الخبرة في الاستثمار</Text>
+        </HStack>
+        <Table size="sm" variant="simple">
+          <Thead>
+            <Tr>
+              <Th>Instrument / الأداة</Th>
+              <Th>Experience / الخبرة</Th>
+              <Th>Years / السنوات</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {INVESTMENT_INSTRUMENT_OPTIONS.map(({ key, label }) => {
+              const v = investmentExp?.[key as keyof InvestmentExperienceData];
+              return (
+                <Tr key={key}>
+                  <Td fontSize="xs">{label}</Td>
+                  <Td fontSize="xs">{v?.has === true ? "Yes / نعم" : v?.has === false ? "No / لا" : "-"}</Td>
+                  <Td fontSize="xs">{v?.years != null ? String(v.years) : "-"}</Td>
+                </Tr>
+              );
+            })}
+          </Tbody>
+        </Table>
+      </Box>
+      <ReviewSection
+        icon={Scale}
+        title="PART I: GENERAL COMPLIANCE QUESTIONS / أسئلة عامة للتوافق التنظيمي"
         accentColor="red.500"
         fields={[
-          { label: "PEP Status", value: (form.pepStatus as string)?.replace(/_/g, " ") || "-" },
-          { label: "Compliance Declaration", value: form.isAssociatedWithListed === true ? "Yes" : form.isAssociatedWithListed === false ? "No" : "-" },
+          { label: "Associated with a listed company / مرتبط بشركة مدرجة", value: yn(form.isAssociatedWithListed) },
+          ...(form.isAssociatedWithListed ? [
+            { label: "If yes, please explain / في حال الإجابة بنعم، يرجى التوضيح", value: (form.associatedListedDetails as string) || "-", colSpan: 2 },
+          ] : []),
+          { label: "Access to non-public / inside information / لديك معلومات داخلية", value: yn(form.hasInsideInformation) },
+          ...(form.hasInsideInformation ? [
+            { label: "If yes, please explain / في حال الإجابة بنعم، يرجى التوضيح", value: (form.insideInformationDetails as string) || "-", colSpan: 2 },
+          ] : []),
         ]}
       />
-
+      <ReviewSection
+        icon={Shield}
+        title="PART J: POLITICALLY EXPOSED PERSON (PEP) / شخص مكشوف سياسياً"
+        accentColor="red.500"
+        fields={[
+          { label: "PEP Declaration / الإقرار", value: pepOpts.length ? pepOpts.join(" + ") : "-", colSpan: 2 },
+          ...(form.pepDetails ? [
+            { label: "PEP Details / التفاصيل", value: (form.pepDetails as string), colSpan: 2 },
+          ] : []),
+        ]}
+      />
       <ReviewSection
         icon={FileText}
-        title="Documents"
+        title="Documents / المستندات"
         accentColor="teal.500"
         fields={[
-          { label: "ID Type", value: form.idDocumentType === "PASSPORT" ? "Passport" : form.idDocumentType === "NATIONAL_ID" ? "National ID" : "-" },
-          { label: "ID/Passport Number", value: (form.passportNumber as string) || (form.idNumber as string) || "-" },
-          { label: "Uploaded Documents", value: `${docs.length} document(s)` },
+          { label: "ID Type / نوع الوثيقة", value: form.idDocumentType === "PASSPORT" ? "Passport / جواز سفر" : form.idDocumentType === "NATIONAL_ID" ? "National ID / بطاقة هوية" : "-" },
+          { label: "ID / Passport Number / الرقم", value: (form.passportNumber as string) || (form.idNumber as string) || "-" },
+          { label: "Issue / Expiry Date / تاريخ الإصدار أو الانتهاء", value: fmtDate(form.idIssueDate) !== "-" ? fmtDate(form.idIssueDate) : fmtDate(form.passportExpiryDate) },
+          { label: "Uploaded Documents / المستندات المرفوعة", value: `${docs.length}`, colSpan: 2 },
         ]}
       />
-
-      {/* Signature summary */}
+      {docs.length > 0 && (
+        <Box bg="white" borderWidth="1px" borderRadius="lg" p={4} fontSize="sm">
+          <Text fontSize="xs" textTransform="uppercase" color="gray.500" mb={2}>
+            Files / الملفات
+          </Text>
+          <VStack align="stretch" spacing={1}>
+            {docs.map((d, i) => (
+              <Text key={i} fontSize="xs" color="gray.600">
+                • {formatDocumentType(d.documentType as string)}{d.side ? ` (${d.side})` : ""} — {(d.fileName as string) || ""}
+              </Text>
+            ))}
+          </VStack>
+        </Box>
+      )}
       <ReviewSection
         icon={ClipboardCheck}
-        title="Signatures"
+        title="Signatures / التوقيعات"
         accentColor="green.500"
         fields={[
-          { label: "Declaration", value: form.declarationAccepted ? `Accepted by ${form.declarationFullName || "-"}` : "Not accepted" },
-          { label: "Regulatory Clause", value: form.regulatoryClauseAccepted ? `Accepted by ${form.regulatoryClauseFullName || "-"}` : "Not accepted" },
-          { label: "Client Agreement", value: (form.agreementAccepted && form.agreementSignedAt) ? `Signed by ${form.agreementFullName || "-"} on ${new Date(form.agreementSignedAt as string).toLocaleString()}` : "Not signed" },
+          { label: "Client Declaration / إقرار العميل", value: form.declarationAccepted ? `Accepted by ${form.declarationFullName || "-"} on ${fmtDate(form.declarationDate)}` : "Not accepted / لم يُقبل" },
+          { label: "Regulatory Reservation Clause / بند احتياطي تنظيمي", value: form.regulatoryClauseAccepted ? `Accepted by ${form.regulatoryClauseFullName || "-"}` : "Not accepted / لم يُقبل" },
+          { label: "Trading Partner (Second Party) / الشركة", value: (form.tradingCompany as string) || "-" },
+          { label: "Commission Tier / العمولة", value: (form.tradingCommission as string) || "-" },
+          { label: "Client Agreement / اتفاقية العميل", value: (form.agreementAccepted && form.agreementSignedAt) ? `Signed by ${form.agreementFullName || "-"} on ${fmtDateTime(form.agreementSignedAt)}` : "Not signed / غير موقعة", colSpan: 2 },
         ]}
       />
 
@@ -2089,6 +2296,8 @@ function DeclarationReviewStep({ form, docs, warningBg, warningBorder }: Declara
           <Icon as={AlertTriangle} boxSize={4} color="yellow.500" flexShrink={0} />
           <Text fontWeight="medium">
             Please review all information carefully. Once submitted, you cannot edit until the review is complete.
+            <br />
+            يرجى مراجعة جميع المعلومات بعناية. بعد الإرسال، لا يمكنك التعديل حتى تكتمل المراجعة.
           </Text>
         </HStack>
       </Box>
