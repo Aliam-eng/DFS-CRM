@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   Box,
@@ -156,8 +156,12 @@ export default function KycPage() {
         return;
       }
       setKycId(kyc.id);
-      // Set boolean defaults to false (No) if not already set
-      const BOOL_DEFAULTS = ["isUsPerson", "isActingOnBehalf", "isAssociatedWithListed", "hasInsideInformation", "hasOtherBankAccounts"];
+      // Set boolean defaults to false (No) for Yes/No questions where
+      // a default is safe (US-Person already handled at registration,
+      // isActingOnBehalf has its own explicit validator). Compliance
+      // questions (isAssociatedWithListed, hasInsideInformation) MUST NOT
+      // be pre-selected — the UAT requires the client to actively pick.
+      const BOOL_DEFAULTS = ["isUsPerson", "hasOtherBankAccounts"];
       for (const key of BOOL_DEFAULTS) {
         if (kyc[key] === null || kyc[key] === undefined) kyc[key] = false;
       }
@@ -339,7 +343,13 @@ export default function KycPage() {
           }
         }
         break;
-      case 8: // Compliance — explanations required when Yes
+      case 8: // Compliance — client must actively answer Yes or No; explanations required when Yes
+        if (form.isAssociatedWithListed === undefined || form.isAssociatedWithListed === null) {
+          errs["isAssociatedWithListed"] = "Please answer the compliance question";
+        }
+        if (form.hasInsideInformation === undefined || form.hasInsideInformation === null) {
+          errs["hasInsideInformation"] = "Please answer the inside-information question";
+        }
         if (form.isAssociatedWithListed) requireString("associatedListedDetails", "Please explain");
         if (form.hasInsideInformation) requireString("insideInformationDetails", "Please explain");
         break;
@@ -696,16 +706,21 @@ function PersonalInfoStep({ form, updateField, errors }: StepProps) {
       </SimpleGrid>
 
       <Divider />
+      <Alert status="info" borderRadius="md" fontSize="sm">
+        <AlertIcon />
+        <Box>
+          <Text>The Phone/Mobile Number and Email Address provided during registration are permanently linked to your account and cannot be modified through this portal. If you need to update these details, please contact DFS.</Text>
+          <Text mt={1} textAlign="right" dir="rtl">رقم الهاتف/الهاتف المحمول وعنوان البريد الإلكتروني اللذان تم إدخالهما عند التسجيل مرتبطان بشكل دائم بحسابكم، ولا يمكن تعديلهما من خلال هذه البوابة. في حال الحاجة إلى تحديث أيٍّ من هذه البيانات، يرجى التواصل مع DFS.</Text>
+        </Box>
+      </Alert>
       <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
-        <FormControl isInvalid={!!errors.phoneNumber}>
+        <FormControl>
           <FormLabel>Phone/Mobile Number / رقم الهاتف</FormLabel>
-          <Input value={(form.phoneNumber as string) || ""} onChange={(e) => updateField("phoneNumber", e.target.value)} placeholder="+961 ..." />
-          <FormErrorMessage>{errors.phoneNumber}</FormErrorMessage>
+          <Input value={(form.phoneNumber as string) || ""} isReadOnly bg="gray.50" _dark={{ bg: "gray.700" }} placeholder="+961 ..." />
         </FormControl>
-        <FormControl isInvalid={!!errors.emailAddress}>
+        <FormControl>
           <FormLabel>Email Address / عنوان البريد الإلكتروني</FormLabel>
-          <Input type="email" value={(form.emailAddress as string) || ""} onChange={(e) => updateField("emailAddress", e.target.value)} />
-          <FormErrorMessage>{errors.emailAddress}</FormErrorMessage>
+          <Input type="email" value={(form.emailAddress as string) || ""} isReadOnly bg="gray.50" _dark={{ bg: "gray.700" }} />
         </FormControl>
       </SimpleGrid>
 
@@ -795,9 +810,14 @@ function AddressStep({ form, updateField, errors }: StepProps) {
       </SimpleGrid>
 
       <Divider />
-      <FormControl display="flex" alignItems="center">
-        <FormLabel mb={0}>Do you have a secondary or overseas address? / هل لديك عنوان ثانٍ أو في الخارج؟</FormLabel>
-        <Switch isChecked={hasSecondary || false} onChange={(e) => updateField("hasSecondaryAddress", e.target.checked)} />
+      <FormControl>
+        <FormLabel>Do you have a secondary or overseas address? / هل لديك عنوان ثانٍ أو في الخارج؟</FormLabel>
+        <RadioGroup value={hasSecondary === true ? "YES" : hasSecondary === false ? "NO" : ""} onChange={(v) => updateField("hasSecondaryAddress", v === "YES")}>
+          <Stack direction="row" spacing={6}>
+            <Radio value="YES" size="sm">Yes / نعم</Radio>
+            <Radio value="NO" size="sm">No / لا</Radio>
+          </Stack>
+        </RadioGroup>
       </FormControl>
 
       {hasSecondary && (
@@ -1489,9 +1509,13 @@ function PepStep({ form, updateField, errors }: StepProps) {
   return (
     <>
       <SectionHeader icon={Shield} label="Politically Exposed Person (PEP) / شخص مكشوف سياسياً" />
-      <Text fontSize="xs" color="gray.500">
-        Option 1 is exclusive. You may select Option 2 and/or Option 3 together.
-      </Text>
+      <Alert status="info" borderRadius="md" fontSize="xs">
+        <AlertIcon />
+        <Box>
+          <Text>Choose Option 1 by itself, OR choose Option 2 and/or Option 3 together. Option 1 cannot be combined with the others.</Text>
+          <Text mt={1} textAlign="right" dir="rtl">اختر الخيار 1 وحده، أو اختر الخيار 2 و/أو الخيار 3 معاً. لا يمكن دمج الخيار 1 مع الخيارات الأخرى.</Text>
+        </Box>
+      </Alert>
 
       <FormControl isInvalid={!!errors.pepStatus}>
         <VStack spacing={3} align="stretch">
@@ -1819,7 +1843,7 @@ interface ClientAgreementStepProps extends StepProps {
 // if there is one selection for the time being") is satisfied without code
 // changes when more options are added later.
 const TRADING_COMPANY_OPTIONS = [
-  { value: "GIVTRADE", label: "GIVTrade" },
+  { value: "GIVTRADE", label: "GIV Trade" },
 ];
 
 const COMMISSION_OPTIONS = [
@@ -1828,6 +1852,15 @@ const COMMISSION_OPTIONS = [
 
 function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepProps) {
   const isSigned = !!form.agreementSignedAt;
+  const scrollRef = useRef<HTMLDivElement | null>(null);
+  const [scrolledToEnd, setScrolledToEnd] = useState(isSigned);
+  const handleAgreementScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    if (el.scrollTop + el.clientHeight >= el.scrollHeight - 5) {
+      setScrolledToEnd(true);
+    }
+  };
 
   // Pull the client's identifying details from the KYC form so they can be
   // displayed inline inside the agreement (مستند التعريف).
@@ -1861,7 +1894,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
 
   return (
     <VStack spacing={4} align="stretch">
-      <Box p={5} borderWidth="1px" borderRadius="lg" fontSize="sm" maxH="500px" overflowY="auto">
+      <Box ref={scrollRef} onScroll={handleAgreementScroll} p={5} borderWidth="1px" borderRadius="lg" fontSize="sm" maxH="500px" overflowY="auto">
         <Heading size="sm" mb={3} color="brand.600" textAlign="right" dir="rtl">
           اتفاقية العميل
         </Heading>
@@ -1884,7 +1917,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
 
         <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4} mb={4} dir="rtl">
           <FormControl>
-            <FormLabel fontSize="xs">اختار الفريق الثاني فتح حساب لدى شركة *</FormLabel>
+            <FormLabel fontSize="xs">اختار الفريق الثاني فتح حساب لدى شركة</FormLabel>
             <Select
               value={(form.tradingCompany as string) || TRADING_COMPANY_OPTIONS[0].value}
               isDisabled={isSigned}
@@ -1896,7 +1929,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
             </Select>
           </FormControl>
           <FormControl>
-            <FormLabel fontSize="xs">قيمة العمولة عن كل عملية *</FormLabel>
+            <FormLabel fontSize="xs">قيمة العمولة عن كل عملية</FormLabel>
             <Select
               value={(form.tradingCommission as string) || COMMISSION_OPTIONS[0].value}
               isDisabled={isSigned}
@@ -1915,7 +1948,17 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
         </Text>
       </Box>
 
-      <Box p={5} borderWidth="1px" borderColor={isSigned ? "green.200" : "blue.200"} borderRadius="lg" bg={isSigned ? "green.50" : "blue.50"}>
+      {!scrolledToEnd && !isSigned && (
+        <Alert status="warning" borderRadius="md" fontSize="sm">
+          <AlertIcon />
+          <Box>
+            <Text>Please scroll to the end of the agreement above before signing.</Text>
+            <Text mt={1} textAlign="right" dir="rtl">يرجى التمرير إلى نهاية الاتفاقية أعلاه قبل التوقيع.</Text>
+          </Box>
+        </Alert>
+      )}
+
+      <Box p={5} borderWidth="1px" borderColor={isSigned ? "green.200" : "blue.200"} borderRadius="lg" bg={isSigned ? "green.50" : "blue.50"} opacity={scrolledToEnd || isSigned ? 1 : 0.5} pointerEvents={scrolledToEnd || isSigned ? "auto" : "none"}>
         <Heading size="sm" mb={3} textAlign="right" dir="rtl">
           التوقيع الإلكتروني
         </Heading>
@@ -1924,7 +1967,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
           <FormControl isInvalid={!!errors.agreementAccepted}>
             <Checkbox
               isChecked={form.agreementAccepted as boolean || false}
-              isDisabled={isSigned}
+              isDisabled={isSigned || !scrolledToEnd}
               onChange={(e) => updateField("agreementAccepted", e.target.checked)}
               colorScheme="brand"
             >
@@ -1939,7 +1982,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
             <FormLabel>Full Name (as signature) / الاسم الكامل (كتوقيع) *</FormLabel>
             <Input
               value={(form.agreementFullName as string) || ""}
-              isDisabled={isSigned}
+              isDisabled={isSigned || !scrolledToEnd}
               onChange={(e) => updateField("agreementFullName", e.target.value)}
               placeholder="First Name / Father's Name / Family Name"
             />
@@ -1953,7 +1996,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
           {!isSigned && (
             <Button
               colorScheme="brand"
-              isDisabled={!form.agreementAccepted || !form.agreementFullName}
+              isDisabled={!scrolledToEnd || !form.agreementAccepted || !form.agreementFullName}
               onClick={handleSign}
             >
               Sign agreement / توقيع الاتفاقية

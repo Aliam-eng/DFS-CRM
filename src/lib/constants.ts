@@ -150,9 +150,9 @@ export const SOURCE_OF_WEALTH_OPTIONS = [
 // =============================================
 
 export const INVESTMENT_STRATEGY_OPTIONS = [
-  { value: "CONSERVATIVE", label: "Conservative (Low Risk) / محافظة" },
-  { value: "MODERATE", label: "Moderate (Medium Risk) / معتدلة" },
-  { value: "AGGRESSIVE", label: "Aggressive (High Risk) / متهورة" },
+  { value: "CONSERVATIVE", label: "Conservative (Low Risk) / محافظة (مخاطر منخفضة)" },
+  { value: "MODERATE", label: "Moderate (Medium Risk) / معتدلة (مخاطر متوسطة)" },
+  { value: "AGGRESSIVE", label: "Aggressive (High Risk) / مرتفعة (مخاطر عالية)" },
 ];
 
 export const INVESTMENT_OBJECTIVE_OPTIONS = [
