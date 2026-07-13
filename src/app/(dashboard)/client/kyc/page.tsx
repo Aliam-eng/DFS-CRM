@@ -2080,7 +2080,7 @@ function DeclarationReviewStep({ form, docs, warningBg, warningBorder }: Declara
         fields={[
           { label: "Declaration", value: form.declarationAccepted ? `Accepted by ${form.declarationFullName || "-"}` : "Not accepted" },
           { label: "Regulatory Clause", value: form.regulatoryClauseAccepted ? `Accepted by ${form.regulatoryClauseFullName || "-"}` : "Not accepted" },
-          { label: "Client Agreement", value: form.agreementOtpVerifiedAt ? `Signed by ${form.agreementFullName || "-"} on ${new Date(form.agreementSignedAt as string).toLocaleString()}` : "Not signed" },
+          { label: "Client Agreement", value: (form.agreementAccepted && form.agreementSignedAt) ? `Signed by ${form.agreementFullName || "-"} on ${new Date(form.agreementSignedAt as string).toLocaleString()}` : "Not signed" },
         ]}
       />
 

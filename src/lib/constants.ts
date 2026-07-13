@@ -88,6 +88,26 @@ export const ADDITIONAL_DOCUMENT_TYPE_OPTIONS = [
   { value: "OTHER", label: "Other / أخرى" },
 ];
 
+// Human-readable labels for DocumentType enum values (used in review pages,
+// PDF exports, etc.). Falls back to snake_case→space if not mapped.
+const DOCUMENT_TYPE_LABELS: Record<string, string> = {
+  PASSPORT: "Passport",
+  NATIONAL_ID: "National ID",
+  DRIVING_LICENCE: "Driving Licence",
+  CIVIL_EXTRACT: "Civil Extract",
+  RESIDENCE_PERMIT: "Residence Permit",
+  UTILITY_BILL: "Utility Bill",
+  BANK_STATEMENT: "Bank Statement",
+  AML_REPORT: "AML Report",
+  STAFF_UPLOAD: "Uploaded by Operations / Compliance",
+  OTHER: "Other",
+};
+
+export function formatDocumentType(type: string | null | undefined): string {
+  if (!type) return "-";
+  return DOCUMENT_TYPE_LABELS[type] || type.replace(/_/g, " ");
+}
+
 // =============================================
 // PART E: Financial Information
 // =============================================

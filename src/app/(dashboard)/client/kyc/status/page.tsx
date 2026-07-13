@@ -20,6 +20,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { KycHistory } from "@/components/shared/kyc-history";
 import { printKycPdf } from "@/lib/kyc-pdf";
+import { formatDocumentType } from "@/lib/constants";
 import { CheckCircle, XCircle, Clock, FileText, Download } from "lucide-react";
 
 interface Review { id: string; reviewType: string; decision: string; notes?: string; amlReportPath?: string; reviewedAt: string; reviewer: { firstName: string; lastName: string; role: string } }
@@ -165,7 +166,7 @@ export default function KycStatusPage() {
                     <HStack spacing={2}>
                       <Icon as={FileText} boxSize={4} color={mutedColor} />
                       <Text fontSize="sm">{doc.fileName}</Text>
-                      <Badge variant="outline" fontSize="xs">{doc.documentType.replace(/_/g, " ")}{doc.side ? ` (${doc.side})` : ""}</Badge>
+                      <Badge variant="outline" fontSize="xs">{formatDocumentType(doc.documentType)}{doc.side ? ` (${doc.side})` : ""}</Badge>
                     </HStack>
                   </Flex>
                 ))}

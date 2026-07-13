@@ -39,6 +39,7 @@ import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { printKycPdf, printSignedDocs } from "@/lib/kyc-pdf";
+import { formatDocumentType } from "@/lib/constants";
 import type { KycDetail, InvestmentExperienceData, BeneficialOwnerInfo } from "@/types/kyc";
 
 function Field({ label, value }: { label: string; value: string | number | null | undefined }) {
@@ -313,7 +314,7 @@ export default function OperationsReviewDetailPage() {
                   )}
                   <ChakraLink href={`/api/files/${doc.filePath}`} isExternal>
                     <HStack spacing={2} p={3} _hover={{ bg: hoverBg }}>
-                      <Text fontSize="sm">{doc.documentType.replace(/_/g, " ")}{doc.side ? ` (${doc.side})` : ""} - {doc.fileName}</Text>
+                      <Text fontSize="sm">{formatDocumentType(doc.documentType)}{doc.side ? ` (${doc.side})` : ""} - {doc.fileName}</Text>
                     </HStack>
                   </ChakraLink>
                 </Box>
