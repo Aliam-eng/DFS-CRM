@@ -162,7 +162,18 @@ export default function KycPage() {
       // isActingOnBehalf has its own explicit validator). Compliance
       // questions (isAssociatedWithListed, hasInsideInformation) MUST NOT
       // be pre-selected — the UAT requires the client to actively pick.
-      const BOOL_DEFAULTS = ["isUsPerson", "hasOtherBankAccounts"];
+      // Communication preferences (preferEmail/SMS/WhatsApp/Other) must
+      // default to false, otherwise the initial JSON.stringify drops the
+      // undefined values and the PATCH ends up as a no-op — the client
+      // can't Save & Continue without first toggling a checkbox.
+      const BOOL_DEFAULTS = [
+        "isUsPerson",
+        "hasOtherBankAccounts",
+        "preferEmail",
+        "preferSMS",
+        "preferWhatsApp",
+        "preferOther",
+      ];
       for (const key of BOOL_DEFAULTS) {
         if (kyc[key] === null || kyc[key] === undefined) kyc[key] = false;
       }
@@ -1419,7 +1430,7 @@ function InvestmentExperienceStep({ form, updateField, errors }: StepProps) {
 function ComplianceStep({ form, updateField, errors }: StepProps) {
   return (
     <>
-      <SectionHeader icon={Scale} label="General Compliance Questions / أسئلة عامة للإمتثال" />
+      <SectionHeader icon={Scale} label="General Compliance Questions / أسئلة عامة للامتثال" />
 
       <FormControl>
         <FormLabel fontSize="sm">
@@ -1786,7 +1797,7 @@ function DeclarationStep({ form, updateField, errors }: StepProps) {
             <FormErrorMessage>{errors.declarationAccepted}</FormErrorMessage>
           </FormControl>
           <FormControl isInvalid={!!errors.declarationFullName}>
-            <FormLabel>Full Name (as signature) *</FormLabel>
+            <FormLabel>Full Name — Three-part name / الاسم الكامل الثلاثي (First name / Father's name / Family name) *</FormLabel>
             <Input
               value={(form.declarationFullName as string) || ""}
               onChange={(e) => updateField("declarationFullName", e.target.value)}
@@ -1821,7 +1832,7 @@ function DeclarationStep({ form, updateField, errors }: StepProps) {
             <FormErrorMessage>{errors.regulatoryClauseAccepted}</FormErrorMessage>
           </FormControl>
           <FormControl isInvalid={!!errors.regulatoryClauseFullName}>
-            <FormLabel>Full Name (as signature) *</FormLabel>
+            <FormLabel>Full Name — Three-part name / الاسم الكامل الثلاثي (First name / Father's name / Family name) *</FormLabel>
             <Input
               value={(form.regulatoryClauseFullName as string) || ""}
               onChange={(e) => updateField("regulatoryClauseFullName", e.target.value)}
@@ -1927,6 +1938,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
               value={(form.tradingCompany as string) || TRADING_COMPANY_OPTIONS[0].value}
               isDisabled={isSigned}
               onChange={(e) => updateField("tradingCompany", e.target.value)}
+              paddingInlineEnd={10}
             >
               {TRADING_COMPANY_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -1939,6 +1951,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
               value={(form.tradingCommission as string) || COMMISSION_OPTIONS[0].value}
               isDisabled={isSigned}
               onChange={(e) => updateField("tradingCommission", e.target.value)}
+              paddingInlineEnd={10}
             >
               {COMMISSION_OPTIONS.map((o) => (
                 <option key={o.value} value={o.value}>{o.label}</option>
@@ -1984,7 +1997,7 @@ function ClientAgreementStep({ form, updateField, errors }: ClientAgreementStepP
           </FormControl>
 
           <FormControl isInvalid={!!errors.agreementFullName}>
-            <FormLabel>Full Name (as signature) / الاسم الكامل (كتوقيع) *</FormLabel>
+            <FormLabel>Full Name — Three-part name / الاسم الكامل الثلاثي (First name / Father's name / Family name) *</FormLabel>
             <Input
               value={(form.agreementFullName as string) || ""}
               isDisabled={isSigned || !scrolledToEnd}
@@ -2111,10 +2124,13 @@ function DeclarationReviewStep({ form, docs, warningBg, warningBorder }: Declara
           { label: "Number of Dependents / عدد المعالين", value: form.numberOfDependents != null ? String(form.numberOfDependents) : "-" },
           { label: "Nationality / الجنسية", value: (form.nationality as string) || "-" },
           { label: "Other Nationality / جنسية أخرى", value: (form.otherNationality as string) || "-" },
-          { label: "ID Number / رقم الهوية", value: (form.idNumber as string) || "-" },
-          { label: "ID Issue Date / تاريخ إصدار الهوية", value: fmtDate(form.idIssueDate) },
-          { label: "Passport Number / رقم جواز السفر", value: (form.passportNumber as string) || "-" },
-          { label: "Passport Expiry Date / تاريخ انتهاء الجواز", value: fmtDate(form.passportExpiryDate) },
+          ...(form.idDocumentType === "PASSPORT" ? [
+            { label: "Passport Number / رقم جواز السفر", value: (form.passportNumber as string) || "-" },
+            { label: "Passport Expiry Date / تاريخ انتهاء الجواز", value: fmtDate(form.passportExpiryDate) },
+          ] : form.idDocumentType === "NATIONAL_ID" ? [
+            { label: "ID Number / رقم الهوية", value: (form.idNumber as string) || "-" },
+            { label: "ID Issue Date / تاريخ إصدار الهوية", value: fmtDate(form.idIssueDate) },
+          ] : []),
           { label: "Phone / الهاتف", value: (form.phoneNumber as string) || "-" },
           { label: "Email / البريد الإلكتروني", value: (form.emailAddress as string) || "-" },
         ]}

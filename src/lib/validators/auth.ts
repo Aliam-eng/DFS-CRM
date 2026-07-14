@@ -7,7 +7,7 @@ export const registerSchema = z.object({
   lastName: z.string().min(1, "Last name is required"),
   phone: z.string().min(6, "Phone number is required"),
   isUsPerson: z.boolean().refine((v) => v === false, {
-    message: "U.S. Persons and tax residents in jurisdictions other than Lebanon cannot register for this service.",
+    message: "Registration cannot be completed. U.S. Persons are not eligible to register for this service or become clients of DFS.",
   }),
 });
 

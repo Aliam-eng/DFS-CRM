@@ -31,7 +31,7 @@ export async function POST(req: Request, { params }: { params: { id: string } })
     // ─── Hard block: US Person cannot proceed ───
     if (kyc.isUsPerson) {
       return NextResponse.json(
-        { error: "U.S. Persons and tax residents of jurisdictions other than Lebanon are not eligible. Please contact our support team." },
+        { error: "Registration cannot be completed. U.S. Persons are not eligible to register for this service or become clients of DFS." },
         { status: 400 }
       );
     }

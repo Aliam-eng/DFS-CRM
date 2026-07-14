@@ -60,11 +60,11 @@ export default function RegisterPage() {
       return;
     }
     if (form.isUsPerson === undefined) {
-      setError("Please answer the U.S. Person / tax resident question");
+      setError("Please answer the US Person question");
       return;
     }
     if (form.isUsPerson === true) {
-      setError("U.S. Persons and tax residents in jurisdictions other than Lebanon cannot register for this service.");
+      setError("Registration cannot be completed. U.S. Persons are not eligible to register for this service or become clients of DFS.");
       return;
     }
     setLoading(true);
@@ -216,7 +216,7 @@ export default function RegisterPage() {
 
             <FormControl isRequired>
               <FormLabel>
-                Are you a U.S. Person or a tax resident in any jurisdiction other than Lebanon?
+                Are you a US Person? / هل أنت مواطن أمريكي؟
               </FormLabel>
               <RadioGroup
                 value={form.isUsPerson === true ? "yes" : form.isUsPerson === false ? "no" : ""}
@@ -231,7 +231,7 @@ export default function RegisterPage() {
                 <Alert status="error" borderRadius="md" mt={2}>
                   <AlertIcon />
                   <Text fontSize="sm">
-                    U.S. Persons and tax residents in jurisdictions other than Lebanon cannot register for this service.
+                    Registration cannot be completed. U.S. Persons are not eligible to register for this service or become clients of DFS.
                   </Text>
                 </Alert>
               )}

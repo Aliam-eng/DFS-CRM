@@ -305,10 +305,13 @@ export function generateKycPdf(kyc: KycDetail): jsPDF {
   addFieldInline("Gender", kyc.gender);
   addFieldInline("Nationality", kyc.nationality);
   addFieldInline("Other Nationality", kyc.otherNationality);
-  addFieldInline("ID Number", kyc.idNumber);
-  addFieldInline("ID Issue Date", fmtDate(kyc.idIssueDate));
-  addFieldInline("Passport Number", kyc.passportNumber);
-  addFieldInline("Passport Expiry", fmtDate(kyc.passportExpiryDate));
+  if (kyc.passportNumber) {
+    addFieldInline("Passport Number", kyc.passportNumber);
+    addFieldInline("Passport Expiry", fmtDate(kyc.passportExpiryDate));
+  } else if (kyc.idNumber) {
+    addFieldInline("ID Number", kyc.idNumber);
+    addFieldInline("ID Issue Date", fmtDate(kyc.idIssueDate));
+  }
   addFieldInline("Marital Status", kyc.maritalStatus);
   addFieldInline("Spouse Full Name", kyc.spouseFullName);
   addFieldInline("Spouse Profession", kyc.spouseProfession);
@@ -652,10 +655,13 @@ ${row("Date of Birth / تاريخ الولادة", fmtD(kyc.dateOfBirth))}
 ${row("Gender / الجنس", kyc.gender)}
 ${row("Nationality / الجنسية", kyc.nationality)}
 ${row("Other Nationality / جنسية أخرى", kyc.otherNationality)}
-${row("ID Number / رقم الهوية", kyc.idNumber)}
-${row("ID Issue Date / تاريخ إصدار الهوية", fmtD(kyc.idIssueDate))}
+${kyc.passportNumber ? `
 ${row("Passport Number / رقم جواز السفر", kyc.passportNumber)}
 ${row("Passport Expiry / تاريخ انتهاء الجواز", fmtD(kyc.passportExpiryDate))}
+` : kyc.idNumber ? `
+${row("ID Number / رقم الهوية", kyc.idNumber)}
+${row("ID Issue Date / تاريخ إصدار الهوية", fmtD(kyc.idIssueDate))}
+` : ""}
 ${row("Marital Status / الحالة الاجتماعية", kyc.maritalStatus)}
 ${row("Spouse Full Name / اسم الزوج/ة", kyc.spouseFullName)}
 ${row("Spouse Profession / مهنة الزوج/ة", kyc.spouseProfession)}
