@@ -158,7 +158,7 @@ export default function AdminKycPage() {
               if (dateFrom) params.set("dateFrom", dateFrom);
               if (dateTo) params.set("dateTo", dateTo);
               const qs = params.toString();
-              window.location.href = `/api/admin/kyc-export${qs ? `?${qs}` : ""}`;
+              window.location.href = `/api/kyc/export${qs ? `?${qs}` : ""}`;
             }}
             leftIcon={<Icon as={Download} boxSize={4} />}
           >

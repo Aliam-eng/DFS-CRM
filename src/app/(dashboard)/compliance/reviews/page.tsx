@@ -12,8 +12,10 @@ import {
   Button,
   Input,
   Select,
+  Icon,
   useColorModeValue,
 } from "@chakra-ui/react";
+import { Download } from "lucide-react";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSkeleton } from "@/components/shared/loading-skeletons";
 import { useDebounce } from "@/hooks/use-debounce";
@@ -40,9 +42,28 @@ export default function ComplianceReviewsPage() {
       .then((d) => { setSubmissions(d.submissions || []); setLoading(false); });
   }, [status, debouncedSearch]);
 
+  const handleExport = () => {
+    const params = new URLSearchParams();
+    if (status) params.set("status", status);
+    if (debouncedSearch) params.set("search", debouncedSearch);
+    const qs = params.toString();
+    window.location.href = `/api/kyc/export${qs ? `?${qs}` : ""}`;
+  };
+
   return (
     <VStack spacing={6} align="stretch">
-      <Heading size="lg">KYC Reviews</Heading>
+      <Flex align="center" justify="space-between" flexWrap="wrap" gap={3}>
+        <Heading size="lg">KYC Reviews</Heading>
+        <Button
+          variant="outline"
+          size="sm"
+          leftIcon={<Icon as={Download} boxSize={4} />}
+          onClick={handleExport}
+          isDisabled={submissions.length === 0}
+        >
+          Export CSV
+        </Button>
+      </Flex>
       <Flex gap={4} flexWrap="wrap">
         <Select value={status} onChange={(e) => setStatus(e.target.value)} w={{ base: "full", md: "240px" }}>
           <option value="OPERATIONS_APPROVED">Pending Final Review</option>
