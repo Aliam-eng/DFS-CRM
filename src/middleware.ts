@@ -8,9 +8,9 @@ const PUBLIC_ROUTES = ["/login", "/register", "/verify-otp", "/forgot-password"]
 
 const ROLE_ROUTES: Record<string, string[]> = {
   CLIENT: ["/client"],
-  COMPLIANCE: ["/compliance"],
+  COMPLIANCE: ["/compliance", "/operations/reports"],
   OPERATIONS: ["/operations"],
-  ADMIN: ["/admin", "/operations/pending-users"],
+  ADMIN: ["/admin", "/operations/pending-users", "/operations/reports"],
   SUPER_ADMIN: ["/super-admin", "/admin", "/compliance", "/operations"],
 };
 

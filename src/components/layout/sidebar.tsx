@@ -33,6 +33,7 @@ import {
   Shield,
   ScrollText,
   UserPlus,
+  BarChart3,
 } from "lucide-react";
 
 interface NavItem {
@@ -51,18 +52,21 @@ export const roleNavItems: Record<string, NavItem[]> = {
   COMPLIANCE: [
     { label: "Dashboard", href: "/compliance/dashboard", icon: LayoutDashboard },
     { label: "KYC Reviews", href: "/compliance/reviews", icon: ClipboardCheck },
+    { label: "Reports", href: "/operations/reports", icon: BarChart3 },
     { label: "Notifications", href: "/notifications", icon: Bell },
   ],
   OPERATIONS: [
     { label: "Dashboard", href: "/operations/dashboard", icon: LayoutDashboard },
     { label: "Client Verification", href: "/operations/pending-users", icon: UserPlus },
     { label: "KYC Reviews", href: "/operations/reviews", icon: ClipboardCheck },
+    { label: "Reports", href: "/operations/reports", icon: BarChart3 },
     { label: "Notifications", href: "/notifications", icon: Bell },
   ],
   ADMIN: [
     { label: "Dashboard", href: "/admin/dashboard", icon: LayoutDashboard },
     { label: "Client Verification", href: "/operations/pending-users", icon: UserPlus },
     { label: "All KYC", href: "/admin/kyc", icon: FileText },
+    { label: "Reports", href: "/operations/reports", icon: BarChart3 },
     { label: "Notifications", href: "/notifications", icon: Bell },
   ],
   SUPER_ADMIN: [
@@ -70,6 +74,7 @@ export const roleNavItems: Record<string, NavItem[]> = {
     { label: "Users", href: "/super-admin/users", icon: Users },
     { label: "Client Verification", href: "/operations/pending-users", icon: UserPlus },
     { label: "All KYC", href: "/super-admin/kyc", icon: FileText },
+    { label: "Reports", href: "/operations/reports", icon: BarChart3 },
     { label: "Settings", href: "/super-admin/settings", icon: Settings },
     { label: "Activity Logs", href: "/super-admin/activity-logs", icon: ScrollText },
     { label: "Notifications", href: "/notifications", icon: Bell },
