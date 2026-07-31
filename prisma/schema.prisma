@@ -61,6 +61,7 @@ enum NotificationType {
   KYC_COMPLIANCE_REJECTED
   KYC_APPROVED
   KYC_REJECTED
+  KYC_COMMENT
   GENERAL
 }
 
@@ -178,6 +179,7 @@ model User {
   notifications Notification[]
   activityLogs  ActivityLog[]
   kycHistory    KycHistory[]
+  kycComments   KycComment[]
 
   @@index([email])
   @@index([role, status])
@@ -371,6 +373,7 @@ model KycSubmission {
   documents KycDocument[]
   reviews   KycReview[]
   history   KycHistory[]
+  comments  KycComment[]
 
   @@index([userId])
   @@index([status])
@@ -463,4 +466,20 @@ model KycHistory {
   @@index([kycSubmissionId])
   @@index([createdAt])
   @@map("kyc_history")
+}
+
+// Threaded discussion between Operations, Compliance, Admin, and Super Admin
+// on a KYC submission. Comments are immutable (audit trail) and staff-only.
+model KycComment {
+  id              String   @id @default(cuid())
+  kycSubmissionId String
+  authorUserId    String
+  body            String
+  createdAt       DateTime @default(now())
+
+  kycSubmission KycSubmission @relation(fields: [kycSubmissionId], references: [id], onDelete: Cascade)
+  author        User          @relation(fields: [authorUserId], references: [id], onDelete: Restrict)
+
+  @@index([kycSubmissionId, createdAt])
+  @@map("kyc_comments")
 }

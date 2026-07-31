@@ -38,6 +38,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
+import { KycComments } from "@/components/shared/kyc-comments";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { printKycPdf } from "@/lib/kyc-pdf";
 import { formatDocumentType } from "@/lib/constants";
@@ -397,6 +398,8 @@ export default function ComplianceReviewDetailPage() {
         )}
 
         {/* Edit History */}
+        <KycComments kycId={kyc.id} />
+
         <KycHistory kycId={kyc.id} />
 
         <ConfirmDialog
