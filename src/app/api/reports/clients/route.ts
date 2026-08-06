@@ -36,6 +36,7 @@ async function loadClients(params: {
   dateFrom?: string | null;
   dateTo?: string | null;
   search?: string | null;
+  campaignId?: string | null;
 }) {
   const where: Prisma.UserWhereInput = { role: "CLIENT" };
 
@@ -64,6 +65,11 @@ async function loadClients(params: {
     ];
   }
 
+  if (params.campaignId) {
+    if (params.campaignId === "NONE") where.campaignId = null;
+    else where.campaignId = params.campaignId;
+  }
+
   return prisma.user.findMany({
     where,
     select: {
@@ -77,6 +83,9 @@ async function loadClients(params: {
       createdAt: true,
       kycSubmission: {
         select: { status: true, submittedAt: true },
+      },
+      campaign: {
+        select: { code: true, name: true },
       },
     },
     orderBy: { createdAt: "desc" },
@@ -96,8 +105,9 @@ export async function GET(req: Request) {
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
     const search = searchParams.get("search");
+    const campaignId = searchParams.get("campaignId");
 
-    const clients = await loadClients({ dateFrom, dateTo, search });
+    const clients = await loadClients({ dateFrom, dateTo, search, campaignId });
 
     if (format === "csv") {
       const headers = [
@@ -107,6 +117,8 @@ export async function GET(req: Request) {
         "User Status",
         "Email Verified",
         "KYC Status",
+        "Campaign",
+        "Campaign Code",
         "Registered At",
         "KYC Submitted At",
       ];
@@ -121,6 +133,8 @@ export async function GET(req: Request) {
           c.status,
           c.emailVerified ? "Yes" : "No",
           c.kycSubmission?.status ?? "NO_KYC",
+          c.campaign?.name ?? "",
+          c.campaign?.code ?? "",
           fmtDateTime(c.createdAt),
           fmtDateTime(c.kycSubmission?.submittedAt),
         ];
@@ -148,6 +162,8 @@ export async function GET(req: Request) {
         userStatus: c.status,
         emailVerified: c.emailVerified,
         kycStatus: c.kycSubmission?.status ?? "NO_KYC",
+        campaignName: c.campaign?.name ?? null,
+        campaignCode: c.campaign?.code ?? null,
         createdAt: c.createdAt,
         submittedAt: c.kycSubmission?.submittedAt ?? null,
       })),

@@ -170,6 +170,7 @@ model User {
   role          UserRole   @default(CLIENT)
   status        UserStatus @default(PENDING_VERIFICATION)
   emailVerified Boolean    @default(false)
+  campaignId    String?
   createdAt     DateTime   @default(now())
   updatedAt     DateTime   @updatedAt
 
@@ -180,6 +181,8 @@ model User {
   activityLogs  ActivityLog[]
   kycHistory    KycHistory[]
   kycComments   KycComment[]
+  campaign      Campaign?      @relation("CampaignSignups", fields: [campaignId], references: [id], onDelete: SetNull)
+  createdCampaigns Campaign[]  @relation("CampaignCreator")
 
   @@index([email])
   @@index([role, status])
@@ -466,6 +469,26 @@ model KycHistory {
   @@index([kycSubmissionId])
   @@index([createdAt])
   @@map("kyc_history")
+}
+
+// Referral / marketing campaign — shareable link (?ref=<code>) that
+// attaches every client who registers through it to this campaign so
+// staff can filter reports by acquisition source.
+model Campaign {
+  id              String   @id @default(cuid())
+  code            String   @unique
+  name            String
+  description     String?
+  active          Boolean  @default(true)
+  createdByUserId String
+  createdAt       DateTime @default(now())
+
+  creator User   @relation("CampaignCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  signups User[] @relation("CampaignSignups")
+
+  @@index([code])
+  @@index([active])
+  @@map("campaigns")
 }
 
 // Threaded discussion between Operations, Compliance, Admin, and Super Admin

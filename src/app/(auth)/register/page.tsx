@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import NextLink from "next/link";
 import {
   Card,
@@ -27,7 +27,7 @@ import {
   useColorModeValue,
 } from "@chakra-ui/react";
 
-export default function RegisterPage() {
+function RegisterForm() {
   const [form, setForm] = useState({
     firstName: "",
     lastName: "",
@@ -39,8 +39,15 @@ export default function RegisterPage() {
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+  const [campaignCode, setCampaignCode] = useState("");
   const router = useRouter();
+  const searchParams = useSearchParams();
   const toast = useToast();
+
+  useEffect(() => {
+    const ref = searchParams?.get("ref");
+    if (ref) setCampaignCode(ref);
+  }, [searchParams]);
 
   const cardBg = useColorModeValue("white", "gray.800");
   const errorBg = useColorModeValue("red.50", "red.900");
@@ -79,6 +86,7 @@ export default function RegisterPage() {
           phone: form.phone,
           password: form.password,
           isUsPerson: form.isUsPerson,
+          campaignCode: campaignCode || undefined,
         }),
       });
       const data = await res.json();
@@ -259,5 +267,13 @@ export default function RegisterPage() {
         </form>
       </CardBody>
     </Card>
+  );
+}
+
+export default function RegisterPage() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterForm />
+    </Suspense>
   );
 }

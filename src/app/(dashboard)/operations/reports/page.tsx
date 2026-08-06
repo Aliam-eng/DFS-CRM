@@ -10,6 +10,7 @@ import {
   Flex,
   Button,
   Input,
+  Select,
   FormControl,
   FormLabel,
   Icon,
@@ -36,8 +37,17 @@ interface ClientRow {
   userStatus: string;
   emailVerified: boolean;
   kycStatus: string;
+  campaignName: string | null;
+  campaignCode: string | null;
   createdAt: string;
   submittedAt: string | null;
+}
+
+interface CampaignOption {
+  id: string;
+  name: string;
+  code: string;
+  signupCount: number;
 }
 
 export default function ReportsPage() {
@@ -49,6 +59,8 @@ export default function ReportsPage() {
   const [dateFrom, setDateFrom] = useState(iso(monthAgo));
   const [dateTo, setDateTo] = useState(iso(today));
   const [search, setSearch] = useState("");
+  const [campaignId, setCampaignId] = useState("");
+  const [campaigns, setCampaigns] = useState<CampaignOption[]>([]);
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [loading, setLoading] = useState(true);
   const toast = useToast();
@@ -64,6 +76,7 @@ export default function ReportsPage() {
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (search) params.set("search", search);
+    if (campaignId) params.set("campaignId", campaignId);
     fetch(`/api/reports/clients?${params.toString()}`)
       .then((r) => r.json())
       .then((d) => {
@@ -83,6 +96,13 @@ export default function ReportsPage() {
 
   useEffect(() => {
     runReport();
+    // Load campaigns list once for the filter dropdown
+    fetch("/api/campaigns")
+      .then((r) => r.json())
+      .then((d) => {
+        if (!d.error) setCampaigns((d.campaigns || []).map((c: { id: string; name: string; code: string; signupCount: number }) => ({ id: c.id, name: c.name, code: c.code, signupCount: c.signupCount })));
+      })
+      .catch(() => { /* ignore */ });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -92,6 +112,7 @@ export default function ReportsPage() {
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     if (search) params.set("search", search);
+    if (campaignId) params.set("campaignId", campaignId);
     window.location.href = `/api/reports/clients?${params.toString()}`;
   };
 
@@ -140,6 +161,16 @@ export default function ReportsPage() {
             <FormLabel fontSize="sm">Search (name / email / phone)</FormLabel>
             <Input placeholder="Optional filter..." value={search} onChange={(e) => setSearch(e.target.value)} />
           </FormControl>
+          <FormControl w={{ base: "full", md: "240px" }}>
+            <FormLabel fontSize="sm">Campaign</FormLabel>
+            <Select value={campaignId} onChange={(e) => setCampaignId(e.target.value)}>
+              <option value="">All (any source)</option>
+              <option value="NONE">— No campaign (direct signups)</option>
+              {campaigns.map((c) => (
+                <option key={c.id} value={c.id}>{c.name} ({c.signupCount})</option>
+              ))}
+            </Select>
+          </FormControl>
           <Button colorScheme="brand" onClick={runReport} isLoading={loading}>
             Run Report
           </Button>
@@ -171,6 +202,7 @@ export default function ReportsPage() {
                   <Th>Phone</Th>
                   <Th>User Status</Th>
                   <Th>KYC Status</Th>
+                  <Th>Campaign</Th>
                   <Th>Registered At</Th>
                   <Th>Submitted At</Th>
                 </Tr>
@@ -191,6 +223,13 @@ export default function ReportsPage() {
                         <Badge>NO KYC</Badge>
                       ) : (
                         <StatusBadge status={c.kycStatus} />
+                      )}
+                    </Td>
+                    <Td fontSize="xs">
+                      {c.campaignName ? (
+                        <Badge colorScheme="purple">{c.campaignName}</Badge>
+                      ) : (
+                        <Text color={mutedColor}>direct</Text>
                       )}
                     </Td>
                     <Td fontSize="xs">{formatDateTime(c.createdAt)}</Td>

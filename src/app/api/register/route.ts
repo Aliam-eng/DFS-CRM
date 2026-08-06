@@ -23,6 +23,16 @@ export async function POST(req: Request) {
 
     const passwordHash = await bcrypt.hash(data.password, 12);
 
+    // Resolve optional referral / campaign code. Invalid or inactive
+    // codes are silently dropped so a typo in the URL never blocks a
+    // legitimate signup — the client just registers unattached.
+    let campaignId: string | null = null;
+    const campaignCode = typeof body?.campaignCode === "string" ? body.campaignCode.trim() : "";
+    if (campaignCode) {
+      const c = await prisma.campaign.findUnique({ where: { code: campaignCode } });
+      if (c && c.active) campaignId = c.id;
+    }
+
     const user = await prisma.user.create({
       data: {
         email: data.email,
@@ -32,12 +42,19 @@ export async function POST(req: Request) {
         phone: data.phone || null,
         role: "CLIENT",
         status: "PENDING_VERIFICATION",
+        campaignId,
       },
     });
 
     await createAndSendOtp(user.id, user.email, "EMAIL_VERIFICATION");
 
-    await logActivity({ userId: user.id, action: "USER_REGISTERED", details: `New client registered: ${data.email}` });
+    await logActivity({
+      userId: user.id,
+      action: "USER_REGISTERED",
+      details: campaignId
+        ? `New client registered via campaign ${campaignCode}: ${data.email}`
+        : `New client registered: ${data.email}`,
+    });
 
     return NextResponse.json(
       { message: "Registration successful. Please verify your email with the OTP sent to you.", email: user.email },
