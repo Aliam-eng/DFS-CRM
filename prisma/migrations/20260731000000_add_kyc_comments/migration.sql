@@ -29,7 +29,8 @@ DO $$ BEGIN
     ON DELETE RESTRICT ON UPDATE CASCADE;
 EXCEPTION WHEN duplicate_object THEN null; END $$;
 
--- Register the KYC_COMMENT notification type
-DO $$ BEGIN
-  ALTER TYPE "NotificationType" ADD VALUE IF NOT EXISTS 'KYC_COMMENT';
-EXCEPTION WHEN duplicate_object THEN null; END $$;
+-- Note: KYC_COMMENT enum value is added in its own migration
+-- (20260819000000_add_kyc_comment_notification_type) because Postgres
+-- refuses ALTER TYPE ... ADD VALUE inside a transaction, and Prisma
+-- wraps every migration in one — mixing this with CREATE TABLE would
+-- roll the whole migration back.
