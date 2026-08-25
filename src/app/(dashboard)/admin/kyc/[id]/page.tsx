@@ -27,6 +27,7 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
 import { KycComments } from "@/components/shared/kyc-comments";
+import { InternalStateSelector } from "@/components/shared/internal-state";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { CheckCircle, XCircle, Clock, FileText, Download, FileSignature } from "lucide-react";
 import { printKycPdf, printSignedDocs } from "@/lib/kyc-pdf";
@@ -95,6 +96,7 @@ export default function AdminKycDetailPage() {
             <Button size="sm" variant="outline" leftIcon={<Icon as={Download} boxSize={4} />} onClick={() => printKycPdf(kyc)}>
               Export PDF
             </Button>
+            <InternalStateSelector kycId={kyc.id} value={kyc.internalState} />
             <StatusBadge status={kyc.status} />
           </HStack>
         </Flex>

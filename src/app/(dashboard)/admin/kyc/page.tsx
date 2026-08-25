@@ -23,13 +23,15 @@ import { KYC_STATUS_LABELS } from "@/lib/constants";
 import { useDebounce } from "@/hooks/use-debounce";
 import { Download } from "lucide-react";
 import { formatDate, formatDateTime } from "@/lib/date";
+import { InternalStateBadge, INTERNAL_STATES, INTERNAL_STATE_LABELS, formatInternalState } from "@/components/shared/internal-state";
 
-interface Submission { id: string; status: string; submittedAt: string; createdAt: string; user: { firstName: string; lastName: string; email: string }; reviews: { reviewType: string; decision: string; reviewedAt: string; reviewer: { firstName: string; lastName: string } }[] }
+interface Submission { id: string; status: string; submittedAt: string; createdAt: string; internalState?: string | null; user: { firstName: string; lastName: string; email: string }; reviews: { reviewType: string; decision: string; reviewedAt: string; reviewer: { firstName: string; lastName: string } }[] }
 
 export default function AdminKycPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [total, setTotal] = useState(0);
   const [status, setStatus] = useState("");
+  const [internalState, setInternalState] = useState("");
   const [search, setSearch] = useState("");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
@@ -45,6 +47,7 @@ export default function AdminKycPage() {
     setLoading(true);
     const params = new URLSearchParams({ page: page.toString(), limit: limit.toString(), search: debouncedSearch });
     if (status) params.set("status", status);
+    if (internalState) params.set("internalState", internalState);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
     fetch(`/api/kyc?${params}`).then((r) => r.json()).then((d) => {
@@ -52,7 +55,7 @@ export default function AdminKycPage() {
       setTotal(d.total || 0);
       setLoading(false);
     });
-  }, [status, debouncedSearch, page, dateFrom, dateTo]);
+  }, [status, internalState, debouncedSearch, page, dateFrom, dateTo]);
 
   const handleExportCSV = async () => {
     setExporting(true);
@@ -63,7 +66,7 @@ export default function AdminKycPage() {
 
     const res = await fetch(`/api/kyc?${params}`);
     const data = await res.json();
-    const rows: string[][] = [["Client Name", "Email", "Status", "Submitted Date", "Compliance Decision", "Compliance Reviewer", "Compliance Date", "Operations Decision", "Operations Reviewer", "Operations Date"]];
+    const rows: string[][] = [["Client Name", "Email", "Status", "Internal State", "Submitted Date", "Compliance Decision", "Compliance Reviewer", "Compliance Date", "Operations Decision", "Operations Reviewer", "Operations Date"]];
 
     (data.submissions || []).forEach((s: Submission) => {
       const comp = s.reviews?.find((r) => r.reviewType === "COMPLIANCE");
@@ -72,6 +75,7 @@ export default function AdminKycPage() {
         `${s.user.firstName} ${s.user.lastName}`,
         s.user.email,
         KYC_STATUS_LABELS[s.status as keyof typeof KYC_STATUS_LABELS] || s.status,
+        formatInternalState(s.internalState),
         s.submittedAt ? formatDate(s.submittedAt) : "-",
         comp?.decision || "-",
         comp ? `${comp.reviewer.firstName} ${comp.reviewer.lastName}` : "-",
@@ -112,6 +116,11 @@ export default function AdminKycPage() {
       key: "status",
       label: "Status",
       render: (s) => <StatusBadge status={s.status} />,
+    },
+    {
+      key: "internalState",
+      label: "Internal",
+      render: (s) => <InternalStateBadge value={s.internalState} />,
     },
     {
       key: "submittedAt",
@@ -155,6 +164,7 @@ export default function AdminKycPage() {
             onClick={() => {
               const params = new URLSearchParams();
               if (status) params.set("status", status);
+              if (internalState) params.set("internalState", internalState);
               if (dateFrom) params.set("dateFrom", dateFrom);
               if (dateTo) params.set("dateTo", dateTo);
               const qs = params.toString();
@@ -178,6 +188,12 @@ export default function AdminKycPage() {
           <option value="COMPLIANCE_REJECTED">Compliance Rejected</option>
           <option value="OPERATIONS_APPROVED">Fully Approved</option>
           <option value="OPERATIONS_REJECTED">Ops Rejected</option>
+        </Select>
+        <Select value={internalState} onChange={(e) => { setInternalState(e.target.value); setPage(1); }} w={{ base: "full", md: "200px" }}>
+          <option value="">Any internal state</option>
+          {INTERNAL_STATES.map((s) => (
+            <option key={s} value={s}>{INTERNAL_STATE_LABELS[s]}</option>
+          ))}
         </Select>
         <Input placeholder="Search by name or email..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} w={{ base: "full", md: "320px" }} />
         <HStack spacing={2} align="flex-end">

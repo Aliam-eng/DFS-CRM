@@ -40,6 +40,19 @@ enum KycStatus {
   OPERATIONS_REJECTED
 }
 
+// Back-office label shared between Operations, Compliance, Admin, and
+// Super Admin — never shown to the client. Independent of KycStatus:
+// tracks who is actively working the file, who's waiting on whom, etc.
+enum KycInternalState {
+  NEW
+  IN_PROGRESS
+  WAITING_CLIENT
+  WAITING_TEAM
+  ON_HOLD
+  ESCALATED
+  DONE
+}
+
 enum DocumentType {
   PASSPORT
   NATIONAL_ID
@@ -367,6 +380,13 @@ model KycSubmission {
   // FORM TRACKING
   // =============================================
   currentStep Int? @default(0)
+
+  // =============================================
+  // BACK-OFFICE INTERNAL STATE (staff-only, never shown to client)
+  // =============================================
+  internalState          KycInternalState? @default(NEW)
+  internalStateUpdatedAt DateTime?
+  internalStateUpdatedBy String?
 
   submittedAt DateTime?
   createdAt   DateTime  @default(now())

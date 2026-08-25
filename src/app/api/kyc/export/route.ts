@@ -65,6 +65,7 @@ export async function GET(req: Request) {
     const search = searchParams.get("search") || "";
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
+    const internalStateParam = searchParams.get("internalState");
 
     const where: Prisma.KycSubmissionWhereInput = {};
 
@@ -85,6 +86,11 @@ export async function GET(req: Request) {
           { email: { contains: search, mode: "insensitive" } },
         ],
       };
+    }
+
+    if (internalStateParam) {
+      // Prisma will validate the enum on its own; invalid values throw
+      where.internalState = internalStateParam as unknown as Prisma.KycSubmissionWhereInput["internalState"];
     }
 
     if (dateFrom || dateTo) {
@@ -171,6 +177,7 @@ export async function GET(req: Request) {
       "Is Family PEP",
       // Status + workflow
       "Status",
+      "Internal State",
       "Submitted At",
       "Created At",
       "Operations Reviewer",
@@ -252,6 +259,7 @@ export async function GET(req: Request) {
         fmtBool(s.pepIsSelf),
         fmtBool(s.pepIsFamily),
         s.status,
+        s.internalState ?? "NEW",
         fmtDateTime(s.submittedAt),
         fmtDateTime(s.createdAt),
         opsReviewerName,

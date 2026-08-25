@@ -182,6 +182,11 @@ export interface KycDetail {
   createdAt: string;
   updatedAt: string;
 
+  // Back-office internal state (staff-only, never shown to client)
+  internalState: string | null;
+  internalStateUpdatedAt: string | null;
+  internalStateUpdatedBy: string | null;
+
   // Relations
   user: {
     firstName: string;

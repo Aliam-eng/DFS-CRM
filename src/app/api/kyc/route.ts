@@ -16,6 +16,7 @@ export async function GET(req: Request) {
     const search = searchParams.get("search") || "";
     const dateFrom = searchParams.get("dateFrom");
     const dateTo = searchParams.get("dateTo");
+    const internalState = searchParams.get("internalState");
 
     const where: Record<string, unknown> = {};
 
@@ -46,6 +47,11 @@ export async function GET(req: Request) {
           { email: { contains: search, mode: "insensitive" } },
         ],
       };
+    }
+
+    // Staff-only internal state filter (silently ignored for CLIENT)
+    if (internalState && session.user.role !== "CLIENT") {
+      where.internalState = internalState;
     }
 
     if (dateFrom || dateTo) {

@@ -39,6 +39,7 @@ import { ConfirmDialog } from "@/components/shared/confirm-dialog";
 import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
 import { KycComments } from "@/components/shared/kyc-comments";
+import { InternalStateSelector } from "@/components/shared/internal-state";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { printKycPdf } from "@/lib/kyc-pdf";
 import { formatDocumentType } from "@/lib/constants";
@@ -136,6 +137,7 @@ export default function ComplianceReviewDetailPage() {
             <Button size="sm" variant="outline" leftIcon={<Icon as={Download} boxSize={4} />} onClick={() => printKycPdf(kyc)}>
               Export PDF
             </Button>
+            <InternalStateSelector kycId={kyc.id} value={kyc.internalState} />
             <StatusBadge status={kyc.status} />
           </HStack>
         </Flex>

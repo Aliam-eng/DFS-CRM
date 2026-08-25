@@ -20,12 +20,14 @@ import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSkeleton } from "@/components/shared/loading-skeletons";
 import { useDebounce } from "@/hooks/use-debounce";
 import { formatDate, formatDateTime } from "@/lib/date";
+import { InternalStateBadge, INTERNAL_STATES, INTERNAL_STATE_LABELS } from "@/components/shared/internal-state";
 
-interface Submission { id: string; status: string; submittedAt: string; user: { firstName: string; lastName: string; email: string } }
+interface Submission { id: string; status: string; submittedAt: string; internalState?: string | null; user: { firstName: string; lastName: string; email: string } }
 
 export default function ComplianceReviewsPage() {
   const [submissions, setSubmissions] = useState<Submission[]>([]);
   const [status, setStatus] = useState("OPERATIONS_APPROVED");
+  const [internalState, setInternalState] = useState("");
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
   const debouncedSearch = useDebounce(search, 300);
@@ -37,15 +39,21 @@ export default function ComplianceReviewsPage() {
 
   useEffect(() => {
     setLoading(true);
-    fetch(`/api/kyc?status=${status}&search=${debouncedSearch}&limit=50`)
+    const p = new URLSearchParams();
+    if (status) p.set("status", status);
+    if (debouncedSearch) p.set("search", debouncedSearch);
+    if (internalState) p.set("internalState", internalState);
+    p.set("limit", "50");
+    fetch(`/api/kyc?${p.toString()}`)
       .then((r) => r.json())
       .then((d) => { setSubmissions(d.submissions || []); setLoading(false); });
-  }, [status, debouncedSearch]);
+  }, [status, debouncedSearch, internalState]);
 
   const handleExport = () => {
     const params = new URLSearchParams();
     if (status) params.set("status", status);
     if (debouncedSearch) params.set("search", debouncedSearch);
+    if (internalState) params.set("internalState", internalState);
     const qs = params.toString();
     window.location.href = `/api/kyc/export${qs ? `?${qs}` : ""}`;
   };
@@ -70,6 +78,12 @@ export default function ComplianceReviewsPage() {
           <option value="COMPLIANCE_APPROVED">Approved</option>
           <option value="COMPLIANCE_REJECTED">Rejected</option>
         </Select>
+        <Select value={internalState} onChange={(e) => setInternalState(e.target.value)} w={{ base: "full", md: "220px" }}>
+          <option value="">Any internal state</option>
+          {INTERNAL_STATES.map((s) => (
+            <option key={s} value={s}>{INTERNAL_STATE_LABELS[s]}</option>
+          ))}
+        </Select>
         <Input placeholder="Search by name or email..." value={search} onChange={(e) => setSearch(e.target.value)} w={{ base: "full", md: "320px" }} />
       </Flex>
       <Box bg={cardBg} borderWidth="1px" borderColor={borderColor} borderRadius="lg" overflow="hidden">
@@ -87,6 +101,7 @@ export default function ComplianceReviewsPage() {
                     {s.submittedAt && <Text fontSize="xs" color={mutedColor}>Submitted: {formatDateTime(s.submittedAt)}</Text>}
                   </Box>
                   <HStack spacing={3}>
+                    <InternalStateBadge value={s.internalState} />
                     <StatusBadge status={s.status} />
                     <Link href={`/compliance/reviews/${s.id}`}><Button size="sm" colorScheme="brand">Review</Button></Link>
                   </HStack>
