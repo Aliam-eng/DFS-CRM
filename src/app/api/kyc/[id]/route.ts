@@ -16,7 +16,12 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
         documents: { orderBy: { uploadedAt: "desc" } },
         reviews: {
           include: { reviewer: { select: { firstName: true, lastName: true, role: true } } },
-          orderBy: { reviewedAt: "asc" },
+          // DESC so `.find(r => reviewType === X)` returns the LATEST review
+          // of that type — after a resubmit + re-approval, the older
+          // rejection must not shadow the newer approval on detail pages.
+          // The client timeline explicitly re-reverses for chronological
+          // display.
+          orderBy: { reviewedAt: "desc" },
         },
       },
     });

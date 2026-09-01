@@ -114,6 +114,7 @@ export async function GET(req: Request) {
           include: {
             reviewer: { select: { firstName: true, lastName: true, role: true } },
           },
+          orderBy: { reviewedAt: "desc" },
         },
       },
       orderBy: { createdAt: "desc" },

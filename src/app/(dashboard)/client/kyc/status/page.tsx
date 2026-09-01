@@ -113,7 +113,7 @@ export default function KycStatusPage() {
               <TimelineItem icon={<Icon as={FileText} boxSize={4} />} title="Application Created" date={formatDateTime(kyc.createdAt)} status="done" />
               {kyc.submittedAt && <TimelineItem icon={<Icon as={Clock} boxSize={4} />} title="Submitted for Review" date={formatDateTime(kyc.submittedAt)} status="done" />}
 
-              {kyc.reviews.map((review) => (
+              {[...kyc.reviews].reverse().map((review) => (
                 <Box key={review.id}>
                   <TimelineItem
                     icon={review.decision === "APPROVED" ? <Icon as={CheckCircle} boxSize={4} color="green.500" /> : <Icon as={XCircle} boxSize={4} color="red.500" />}
