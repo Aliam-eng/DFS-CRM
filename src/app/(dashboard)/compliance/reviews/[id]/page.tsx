@@ -40,6 +40,7 @@ import { DetailSkeleton } from "@/components/shared/loading-skeletons";
 import { KycHistory } from "@/components/shared/kyc-history";
 import { KycComments } from "@/components/shared/kyc-comments";
 import { InternalStateSelector } from "@/components/shared/internal-state";
+import { DocumentActions } from "@/components/shared/document-actions";
 import { StaffDocumentUpload } from "@/components/shared/staff-document-upload";
 import { printKycPdf } from "@/lib/kyc-pdf";
 import { formatDocumentType } from "@/lib/constants";
@@ -317,6 +318,7 @@ export default function ComplianceReviewDetailPage() {
           <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
             {kyc.documents.map((doc) => {
               const isImage = doc.mimeType?.startsWith("image/");
+              const docLabel = `${formatDocumentType(doc.documentType)}${doc.side ? ` (${doc.side})` : ""}`;
               return (
                 <Box key={doc.id} borderWidth="1px" borderColor={borderColor} borderRadius="md" overflow="hidden">
                   {isImage && (
@@ -325,12 +327,13 @@ export default function ComplianceReviewDetailPage() {
                       <img src={`/api/files/${doc.filePath}`} alt={doc.fileName} style={{ width: "100%", height: "192px", objectFit: "contain", borderRadius: "4px" }} />
                     </Box>
                   )}
-                  <ChakraLink href={`/api/files/${doc.filePath}`} isExternal>
-                    <HStack spacing={2} p={3} _hover={{ bg: hoverBg }}>
-                      <Text fontSize="sm" fontWeight="medium">{formatDocumentType(doc.documentType)}{doc.side ? ` (${doc.side})` : ""}</Text>
-                      <Text fontSize="xs" color={mutedColor}>{doc.fileName}</Text>
-                    </HStack>
-                  </ChakraLink>
+                  <HStack spacing={2} p={3} _hover={{ bg: hoverBg }} justify="space-between">
+                    <ChakraLink href={`/api/files/${doc.filePath}`} isExternal flex={1} minW={0}>
+                      <Text fontSize="sm" fontWeight="medium" noOfLines={1}>{docLabel}</Text>
+                      <Text fontSize="xs" color={mutedColor} noOfLines={1}>{doc.fileName}</Text>
+                    </ChakraLink>
+                    <DocumentActions kycId={kyc.id} docId={doc.id} label={docLabel} onChanged={loadKyc} />
+                  </HStack>
                 </Box>
               );
             })}
