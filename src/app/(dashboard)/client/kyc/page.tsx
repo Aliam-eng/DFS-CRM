@@ -169,6 +169,8 @@ export default function KycPage() {
         "hasOtherBankAccounts",
         "isAssociatedWithListed",
         "hasInsideInformation",
+        "isDirectorOfListed",
+        "hasSecondaryAddress",
         "preferEmail",
         "preferSMS",
         "preferWhatsApp",
