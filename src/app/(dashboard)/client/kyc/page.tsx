@@ -157,18 +157,18 @@ export default function KycPage() {
         return;
       }
       setKycId(kyc.id);
-      // Set boolean defaults to false (No) for Yes/No questions where
-      // a default is safe (US-Person already handled at registration,
-      // isActingOnBehalf has its own explicit validator). Compliance
-      // questions (isAssociatedWithListed, hasInsideInformation) MUST NOT
-      // be pre-selected — the UAT requires the client to actively pick.
-      // Communication preferences (preferEmail/SMS/WhatsApp/Other) must
-      // default to false, otherwise the initial JSON.stringify drops the
-      // undefined values and the PATCH ends up as a no-op — the client
-      // can't Save & Continue without first toggling a checkbox.
+      // Set boolean defaults to false (No) for every Yes/No question
+      // where a default is safe. isActingOnBehalf has its own explicit
+      // validator so we leave it undefined. Everything else — including
+      // the Part I compliance questions and Part D communication
+      // preferences — defaults to No so the radios visibly match the
+      // form state on first render and Save & Continue works without
+      // the client having to touch every checkbox.
       const BOOL_DEFAULTS = [
         "isUsPerson",
         "hasOtherBankAccounts",
+        "isAssociatedWithListed",
+        "hasInsideInformation",
         "preferEmail",
         "preferSMS",
         "preferWhatsApp",
@@ -355,13 +355,7 @@ export default function KycPage() {
           }
         }
         break;
-      case 8: // Compliance — client must actively answer Yes or No; explanations required when Yes
-        if (form.isAssociatedWithListed === undefined || form.isAssociatedWithListed === null) {
-          errs["isAssociatedWithListed"] = "Please answer the compliance question";
-        }
-        if (form.hasInsideInformation === undefined || form.hasInsideInformation === null) {
-          errs["hasInsideInformation"] = "Please answer the inside-information question";
-        }
+      case 8: // Compliance — both questions default to No; explanation required only when Yes
         if (form.isAssociatedWithListed) requireString("associatedListedDetails", "Please explain");
         if (form.hasInsideInformation) requireString("insideInformationDetails", "Please explain");
         break;
