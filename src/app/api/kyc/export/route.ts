@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import type { Prisma, KycStatus } from "@prisma/client";
+import { KycInternalState } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -88,9 +89,10 @@ export async function GET(req: Request) {
       };
     }
 
-    if (internalStateParam) {
-      // Prisma will validate the enum on its own; invalid values throw
-      where.internalState = internalStateParam as unknown as Prisma.KycSubmissionWhereInput["internalState"];
+    // Validate internalState against the enum; unknown values are dropped
+    // silently rather than crashing the export with a 500.
+    if (internalStateParam && (Object.values(KycInternalState) as string[]).includes(internalStateParam)) {
+      where.internalState = internalStateParam as KycInternalState;
     }
 
     if (dateFrom || dateTo) {

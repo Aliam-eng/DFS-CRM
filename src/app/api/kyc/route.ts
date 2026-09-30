@@ -1,6 +1,26 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { KycStatus, KycInternalState, Prisma } from "@prisma/client";
+
+const VALID_STATUSES = new Set<string>(Object.values(KycStatus));
+const VALID_INTERNAL_STATES = new Set<string>(Object.values(KycInternalState));
+
+// Non-CLIENT roles must not be able to filter to DRAFT via URL param —
+// drafts belong to the client and aren't visible to staff.
+const STAFF_ALLOWED_STATUSES = new Set<KycStatus>([
+  "SUBMITTED",
+  "OPERATIONS_APPROVED",
+  "OPERATIONS_REJECTED",
+  "COMPLIANCE_APPROVED",
+  "COMPLIANCE_REJECTED",
+]);
+
+function parseValidDate(s: string | null): Date | null {
+  if (!s) return null;
+  const d = new Date(s);
+  return isNaN(d.getTime()) ? null : d;
+}
 
 export async function GET(req: Request) {
   try {
@@ -10,32 +30,44 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const status = searchParams.get("status");
-    const page = parseInt(searchParams.get("page") || "1");
-    const limit = parseInt(searchParams.get("limit") || "10");
+    const statusParam = searchParams.get("status");
+    const internalStateParam = searchParams.get("internalState");
     const search = searchParams.get("search") || "";
-    const dateFrom = searchParams.get("dateFrom");
-    const dateTo = searchParams.get("dateTo");
-    const internalState = searchParams.get("internalState");
+    const dateFrom = parseValidDate(searchParams.get("dateFrom"));
+    const dateTo = parseValidDate(searchParams.get("dateTo"));
 
-    const where: Record<string, unknown> = {};
+    // Pagination — clamp so bad values can't hammer the DB or produce
+    // negative skips.
+    const rawPage = parseInt(searchParams.get("page") || "1", 10);
+    const rawLimit = parseInt(searchParams.get("limit") || "10", 10);
+    const page = Number.isFinite(rawPage) && rawPage > 0 ? rawPage : 1;
+    const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(rawLimit, 1), 200) : 10;
 
-    // Role-based filtering (new flow: OPERATIONS first, then COMPLIANCE finalizes)
+    // Enum validation: unknown status/internalState → silently drop the
+    // filter rather than passing garbage to Prisma (500).
+    const status: KycStatus | null =
+      statusParam && VALID_STATUSES.has(statusParam) ? (statusParam as KycStatus) : null;
+    const internalState: KycInternalState | null =
+      internalStateParam && VALID_INTERNAL_STATES.has(internalStateParam)
+        ? (internalStateParam as KycInternalState)
+        : null;
+
+    const where: Prisma.KycSubmissionWhereInput = {};
+
+    // Role-based scope
     if (session.user.role === "CLIENT") {
       where.userId = session.user.id;
-    } else if (session.user.role === "OPERATIONS") {
-      // Operations queue = SUBMITTED; also can see everything downstream (read-only)
-      where.status = status || "SUBMITTED";
-    } else if (session.user.role === "COMPLIANCE") {
-      // Compliance queue = OPERATIONS_APPROVED; final approvals go to COMPLIANCE_APPROVED
-      if (status) {
+    } else if (session.user.role === "OPERATIONS" || session.user.role === "COMPLIANCE") {
+      // Staff default queue when the caller didn't ask for a specific status.
+      const defaultStatus: KycStatus = session.user.role === "OPERATIONS" ? "SUBMITTED" : "OPERATIONS_APPROVED";
+      // Block DRAFT even when explicitly requested — it belongs to the client.
+      if (status && STAFF_ALLOWED_STATUSES.has(status)) {
         where.status = status;
       } else {
-        where.status = "OPERATIONS_APPROVED";
+        where.status = defaultStatus;
       }
-    }
-    // ADMIN and SUPER_ADMIN see all (status filter optional)
-    if (status && session.user.role !== "COMPLIANCE" && session.user.role !== "OPERATIONS") {
+    } else if (status) {
+      // ADMIN / SUPER_ADMIN can see any status they ask for.
       where.status = status;
     }
 
@@ -49,19 +81,19 @@ export async function GET(req: Request) {
       };
     }
 
-    // Staff-only internal state filter (silently ignored for CLIENT)
     if (internalState && session.user.role !== "CLIENT") {
       where.internalState = internalState;
     }
 
     if (dateFrom || dateTo) {
-      where.submittedAt = {};
-      if (dateFrom) (where.submittedAt as Record<string, unknown>).gte = new Date(dateFrom);
+      const submittedAt: Prisma.DateTimeNullableFilter = {};
+      if (dateFrom) submittedAt.gte = dateFrom;
       if (dateTo) {
-        const endDate = new Date(dateTo);
-        endDate.setHours(23, 59, 59, 999);
-        (where.submittedAt as Record<string, unknown>).lte = endDate;
+        const end = new Date(dateTo);
+        end.setHours(23, 59, 59, 999);
+        submittedAt.lte = end;
       }
+      where.submittedAt = submittedAt;
     }
 
     const [submissions, total] = await Promise.all([
