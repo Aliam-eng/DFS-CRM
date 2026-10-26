@@ -196,6 +196,7 @@ model User {
   kycComments   KycComment[]
   campaign      Campaign?      @relation("CampaignSignups", fields: [campaignId], references: [id], onDelete: SetNull)
   createdCampaigns Campaign[]  @relation("CampaignCreator")
+  createdWebhooks  Webhook[]   @relation("WebhookCreator")
 
   @@index([email])
   @@index([role, status])
@@ -489,6 +490,49 @@ model KycHistory {
   @@index([kycSubmissionId])
   @@index([createdAt])
   @@map("kyc_history")
+}
+
+// Outbound webhooks — super-admin configures external URLs that receive
+// a signed JSON payload when a specific KYC lifecycle event fires.
+// Enum left extensible so additional events can be added later without
+// a schema change beyond the enum ADD VALUE.
+enum WebhookEvent {
+  KYC_FINAL_APPROVED
+}
+
+model Webhook {
+  id          String       @id @default(cuid())
+  name        String
+  url         String
+  event       WebhookEvent
+  secret      String       // auto-generated; HMAC-SHA256 key for X-DFS-Signature header
+  active      Boolean      @default(true)
+  createdByUserId String
+  createdAt   DateTime     @default(now())
+
+  creator    User              @relation("WebhookCreator", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  deliveries WebhookDelivery[]
+
+  @@index([event, active])
+  @@map("webhooks")
+}
+
+model WebhookDelivery {
+  id             String       @id @default(cuid())
+  webhookId      String
+  event          WebhookEvent
+  payload        Json
+  responseStatus Int?
+  responseBody   String?
+  errorMessage   String?
+  success        Boolean      @default(false)
+  attemptedAt    DateTime     @default(now())
+  durationMs     Int?
+
+  webhook Webhook @relation(fields: [webhookId], references: [id], onDelete: Cascade)
+
+  @@index([webhookId, attemptedAt])
+  @@map("webhook_deliveries")
 }
 
 // Referral / marketing campaign — shareable link (?ref=<code>) that

@@ -35,6 +35,7 @@ import {
   UserPlus,
   BarChart3,
   Link2,
+  Webhook as WebhookIcon,
 } from "lucide-react";
 
 interface NavItem {
@@ -80,6 +81,7 @@ export const roleNavItems: Record<string, NavItem[]> = {
     { label: "All KYC", href: "/super-admin/kyc", icon: FileText },
     { label: "Reports", href: "/operations/reports", icon: BarChart3 },
     { label: "Campaigns", href: "/operations/campaigns", icon: Link2 },
+    { label: "Webhooks", href: "/super-admin/webhooks", icon: WebhookIcon },
     { label: "Settings", href: "/super-admin/settings", icon: Settings },
     { label: "Activity Logs", href: "/super-admin/activity-logs", icon: ScrollText },
     { label: "Notifications", href: "/notifications", icon: Bell },

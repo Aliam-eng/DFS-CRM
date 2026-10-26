@@ -5,6 +5,7 @@ import { saveFile } from "@/lib/storage";
 import { createNotification, notifyByRole } from "@/lib/notifications";
 import { logActivity } from "@/lib/activity-log";
 import { sendKycStatusEmail } from "@/lib/email";
+import { dispatchWebhook, buildKycFinalApprovedPayload } from "@/lib/webhooks";
 
 export async function POST(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -85,6 +86,15 @@ export async function POST(req: Request, { params }: { params: { id: string } })
         `/operations/reviews/${kyc.id}`
       );
       sendKycStatusEmail(kyc.user.email, clientName, "COMPLIANCE_APPROVED");
+
+      // Fire outbound KYC_FINAL_APPROVED webhook to every subscriber.
+      // Fire-and-forget so a slow or down receiver can't delay the
+      // approval UX. buildKycFinalApprovedPayload reloads with all
+      // relations so the receiver gets the full client dossier.
+      const payload = await buildKycFinalApprovedPayload(kyc.id);
+      if (payload) {
+        void dispatchWebhook("KYC_FINAL_APPROVED", payload);
+      }
     } else {
       // Notify client
       await createNotification({
